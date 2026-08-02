@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=5"><script src="/app.js?v=5" defer></script>
+  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=9"><script src="/app.js?v=6" defer></script>
 </head>
 <body class="drive-page">
   <header class="topbar">
@@ -63,7 +63,7 @@
   </main>
   <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Xem ảnh">
     <div class="lightbox-backdrop" data-lightbox-close></div>
-    <div class="lightbox-header"><div><strong id="lightbox-name"></strong><small id="lightbox-count"></small></div><div class="lightbox-actions"><a id="lightbox-download" class="lightbox-button" href="#" title="Tải ảnh xuống">↓ <span>Tải xuống</span></a><button class="lightbox-button close-lightbox" type="button" data-lightbox-close title="Đóng">×</button></div></div>
+    <div class="lightbox-header"><div><strong id="lightbox-name"></strong><small id="lightbox-count"></small></div><div class="lightbox-actions"><div class="zoom-controls"><button id="zoom-out" type="button" title="Thu nhỏ">−</button><button id="zoom-level" type="button" title="Về kích thước 100%">100%</button><button id="zoom-in" type="button" title="Phóng to">＋</button></div><a id="lightbox-download" class="lightbox-button" href="#" title="Tải ảnh xuống">↓ <span>Tải xuống</span></a><button class="lightbox-button close-lightbox" type="button" data-lightbox-close title="Đóng">×</button></div></div>
     <button class="lightbox-nav lightbox-prev" id="lightbox-prev" type="button" aria-label="Ảnh trước">‹</button>
     <figure class="lightbox-stage"><div class="lightbox-loader" id="lightbox-loader"></div><img id="lightbox-image" alt=""></figure>
     <button class="lightbox-nav lightbox-next" id="lightbox-next" type="button" aria-label="Ảnh tiếp theo">›</button>

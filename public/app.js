@@ -140,7 +140,34 @@ const lightboxDownload = document.querySelector('#lightbox-download');
 const lightboxLoader = document.querySelector('#lightbox-loader');
 const previousButton = document.querySelector('#lightbox-prev');
 const nextButton = document.querySelector('#lightbox-next');
+const zoomInButton = document.querySelector('#zoom-in');
+const zoomOutButton = document.querySelector('#zoom-out');
+const zoomLevelButton = document.querySelector('#zoom-level');
+const lightboxStage = document.querySelector('.lightbox-stage');
 let activeImageIndex = 0;
+let zoomLevel = 1;
+let fittedImageWidth = 0;
+let fittedImageHeight = 0;
+
+function setZoom(nextZoom) {
+  zoomLevel = Math.min(4, Math.max(0.5, Math.round(nextZoom * 10) / 10));
+  if (zoomLevel > 1 && fittedImageWidth && fittedImageHeight) {
+    lightboxImage.style.width = `${Math.round(fittedImageWidth * zoomLevel)}px`;
+    lightboxImage.style.height = `${Math.round(fittedImageHeight * zoomLevel)}px`;
+    lightboxImage.style.maxWidth = 'none';
+    lightboxImage.style.maxHeight = 'none';
+    lightboxImage.style.transform = 'scale(1)';
+  } else {
+    lightboxImage.style.width = '';
+    lightboxImage.style.height = '';
+    lightboxImage.style.maxWidth = '';
+    lightboxImage.style.maxHeight = '';
+    lightboxImage.style.transform = `scale(${zoomLevel})`;
+  }
+  zoomLevelButton.textContent = `${Math.round(zoomLevel * 100)}%`;
+  lightboxStage.classList.toggle('is-zoomed', zoomLevel > 1);
+  if (zoomLevel === 1) { lightboxStage.scrollTop = 0; lightboxStage.scrollLeft = 0; }
+}
 
 function showLightboxImage(index) {
   if (!previews.length) return;
@@ -148,6 +175,9 @@ function showLightboxImage(index) {
   const preview = previews[activeImageIndex];
   const imageId = preview.dataset.imageId;
   const imageName = preview.dataset.imageName;
+  fittedImageWidth = 0;
+  fittedImageHeight = 0;
+  setZoom(1);
   lightbox.classList.add('loading');
   lightboxLoader.hidden = false;
   lightboxImage.classList.remove('loaded');
@@ -175,10 +205,26 @@ function closeLightbox() {
 }
 
 previews.forEach((preview, index) => preview.addEventListener('click', (event) => { event.preventDefault(); openLightbox(index); }));
-lightboxImage?.addEventListener('load', () => { lightbox.classList.remove('loading'); lightboxLoader.hidden = true; lightboxImage.classList.add('loaded'); });
+lightboxImage?.addEventListener('load', () => {
+  lightbox.classList.remove('loading');
+  lightboxLoader.hidden = true;
+  lightboxImage.classList.add('loaded');
+  lightboxImage.style.transform = 'scale(1)';
+  fittedImageWidth = lightboxImage.clientWidth;
+  fittedImageHeight = lightboxImage.clientHeight;
+});
 document.querySelectorAll('[data-lightbox-close]').forEach((element) => element.addEventListener('click', closeLightbox));
 previousButton?.addEventListener('click', () => showLightboxImage(activeImageIndex - 1));
 nextButton?.addEventListener('click', () => showLightboxImage(activeImageIndex + 1));
+zoomInButton?.addEventListener('click', () => setZoom(zoomLevel + 0.25));
+zoomOutButton?.addEventListener('click', () => setZoom(zoomLevel - 0.25));
+zoomLevelButton?.addEventListener('click', () => setZoom(1));
+lightboxImage?.addEventListener('dblclick', () => setZoom(zoomLevel === 1 ? 2 : 1));
+lightboxStage?.addEventListener('wheel', (event) => {
+  if (!lightbox?.classList.contains('open')) return;
+  event.preventDefault();
+  setZoom(zoomLevel + (event.deltaY < 0 ? 0.25 : -0.25));
+}, { passive: false });
 document.addEventListener('keydown', (event) => {
   if (!lightbox?.classList.contains('open')) return;
   if (event.key === 'Escape') closeLightbox();
