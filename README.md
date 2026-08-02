@@ -32,7 +32,7 @@ npm install
 npm start
 ```
 
-Mặc định hỗ trợ JPG, PNG, GIF, WebP, tối đa 10 MB mỗi ảnh. Có thể đổi qua biến môi trường `MAX_FILE_SIZE_MB`.
+Mặc định hỗ trợ JPG, PNG, GIF, WebP, tối đa 100 MB mỗi ảnh. Có thể đổi qua biến môi trường `MAX_FILE_SIZE_MB`.
 
 ## Dùng PostgreSQL có sẵn
 

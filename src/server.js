@@ -12,7 +12,7 @@ const pool = require('./db');
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const maxAccounts = Number(process.env.MAX_ACCOUNTS || 5);
-const maxFileSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 10);
+const maxFileSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 30);
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));

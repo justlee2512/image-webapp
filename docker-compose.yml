@@ -21,7 +21,7 @@ services:
       DATABASE_URL: postgres://webapp:webapp_password@db:5432/webapp
       SESSION_SECRET: local-docker-secret-change-in-production
       MAX_ACCOUNTS: 5
-      MAX_FILE_SIZE_MB: 10
+      MAX_FILE_SIZE_MB: 100
     ports:
       - "3000:3000"
     depends_on:
@@ -31,4 +31,3 @@ services:
 
 volumes:
   postgres_data:
-
