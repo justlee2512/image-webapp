@@ -1,6 +1,6 @@
 # Lumina Image Drive
 
-Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được lưu trực tiếp trong PostgreSQL (`BYTEA`). Hệ thống giới hạn tối đa 5 tài khoản, hỗ trợ upload tuần tự, chọn/xóa nhiều ảnh, xóa toàn bộ ảnh trong folder, tải nhiều ảnh thành ZIP, tạo/xóa folder và chia sẻ folder chỉ đọc cho tài khoản khác.
+Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được lưu trực tiếp trong PostgreSQL (`BYTEA`). Hệ thống giới hạn tối đa 5 tài khoản, hỗ trợ upload tuần tự, kéo hoặc chọn nhiều ảnh để chuyển folder, chọn/xóa nhiều ảnh, tải ZIP và chia sẻ folder chỉ đọc.
 
 ## Chạy bằng Docker
 
@@ -55,3 +55,5 @@ Khi nâng cấp từ phiên bản cũ có database đang chứa ảnh, chạy l�
 ```bash
 psql -h 192.168.2.90 -U YOUR_DB_USER -d webapp -f db/init.sql
 ```
+
+Schema mới lưu thêm thumbnail WebP. Ảnh cũ tự tạo thumbnail ở lần xem đầu tiên; ảnh mới tạo thumbnail ngay khi upload. App mặc định chỉ cho 1 upload và 2 lượt đọc file lớn chạy đồng thời để bảo vệ PostgreSQL chạy trên HDD. Có thể điều chỉnh bằng `MAX_CONCURRENT_UPLOADS`, `MAX_CONCURRENT_DOWNLOADS` và `DB_POOL_MAX`.

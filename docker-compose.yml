@@ -22,6 +22,10 @@ services:
       SESSION_SECRET: local-docker-secret-change-in-production
       MAX_ACCOUNTS: 5
       MAX_FILE_SIZE_MB: 30
+      DB_POOL_MAX: 5
+      DB_STATEMENT_TIMEOUT_MS: 120000
+      MAX_CONCURRENT_UPLOADS: 1
+      MAX_CONCURRENT_DOWNLOADS: 2
     ports:
       - "3000:3000"
     depends_on:

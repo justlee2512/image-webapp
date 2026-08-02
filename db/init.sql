@@ -34,12 +34,20 @@ CREATE TABLE IF NOT EXISTS image_drive.images (
   mime_type VARCHAR(100) NOT NULL,
   size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
   image_data BYTEA NOT NULL,
+  thumbnail_data BYTEA,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Nâng cấp an toàn cho database đã có bảng images từ phiên bản cũ.
 ALTER TABLE image_drive.images
   ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES image_drive.folders(id) ON DELETE CASCADE;
+
+ALTER TABLE image_drive.images
+  ADD COLUMN IF NOT EXISTS thumbnail_data BYTEA;
+
+-- JPEG/PNG/WebP vốn đã nén; EXTERNAL tránh PostgreSQL tốn CPU thử nén lại BYTEA lớn.
+ALTER TABLE image_drive.images
+  ALTER COLUMN image_data SET STORAGE EXTERNAL;
 
 CREATE INDEX IF NOT EXISTS images_user_created_idx
   ON image_drive.images (user_id, created_at DESC);
@@ -49,3 +57,9 @@ CREATE INDEX IF NOT EXISTS images_folder_created_idx
 
 CREATE INDEX IF NOT EXISTS folder_shares_user_idx
   ON image_drive.folder_shares (user_id);
+
+-- Giúp PostgreSQL cập nhật thống kê sau khi thêm index/cột trên database hiện có.
+ANALYZE image_drive.users;
+ANALYZE image_drive.folders;
+ANALYZE image_drive.folder_shares;
+ANALYZE image_drive.images;

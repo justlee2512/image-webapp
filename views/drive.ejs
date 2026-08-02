@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=3"><script src="/app.js?v=3" defer></script>
+  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=4"><script src="/app.js?v=4" defer></script>
 </head>
 <body class="drive-page">
   <header class="topbar">
@@ -30,7 +30,7 @@
           <form class="create-folder-form action-card" method="post" action="/folders"><span class="action-icon folder-add-icon">＋</span><div class="folder-input-wrap"><label for="folder-name">Tạo thư mục mới</label><input id="folder-name" name="name" maxlength="100" required placeholder="Ví dụ: Du lịch Đà Lạt"></div><button class="button outline" type="submit">Tạo folder →</button></form>
         </div>
         <% if (folders.length) { %><div class="folder-grid"><% folders.forEach((folder) => { %>
-          <a class="folder-card" href="/drive?folder=<%= folder.id %>"><span class="folder-icon">▰</span><span><strong><%= folder.name %></strong><small><%= folder.image_count %> ảnh · <%= folder.is_owner ? 'Của tôi' : `Chia sẻ bởi ${folder.owner_name}` %></small></span><span>→</span></a>
+          <a class="folder-card <%= folder.is_owner ? 'folder-drop-target' : '' %>" data-folder-id="<%= folder.is_owner ? folder.id : '' %>" href="/drive?folder=<%= folder.id %>"><span class="folder-icon">▰</span><span><strong><%= folder.name %></strong><small><%= folder.image_count %> ảnh · <%= folder.is_owner ? 'Kéo ảnh vào đây' : `Chia sẻ bởi ${folder.owner_name}` %></small></span><span>→</span></a>
         <% }) %></div><% } else { %><p class="muted">Chưa có folder nào.</p><% } %>
       </section>
     <% } %>
@@ -48,11 +48,12 @@
     <% } else { %>
       <form method="post" action="/images/download-batch" id="batch-form">
         <input type="hidden" name="folderId" value="<%= currentFolder ? currentFolder.id : '' %>">
-        <div class="batch-toolbar"><label class="select-all-label"><input id="select-all" type="checkbox"> <span>Chọn tất cả</span></label><div class="batch-actions"><button class="button outline" id="batch-download" disabled>↓ Tải ảnh đã chọn</button><% if (isOwner) { %><button class="button delete-selected" id="batch-delete" type="submit" formaction="/images/delete-batch" disabled>⌫ Xóa ảnh đã chọn</button><button class="button delete-all" type="submit" formaction="/images/delete-all">Xóa tất cả ảnh</button><% } %></div></div>
+        <input type="hidden" name="currentFolderId" value="<%= currentFolder ? currentFolder.id : '' %>">
+        <div class="batch-toolbar"><label class="select-all-label"><input id="select-all" type="checkbox"> <span>Chọn tất cả</span></label><div class="batch-actions"><button class="button outline" id="batch-download" disabled>↓ Tải ảnh đã chọn</button><% if (isOwner) { %><div class="move-control"><select name="targetFolderId" aria-label="Folder đích"><option value="">Thư viện chính</option><% folders.filter((folder) => folder.is_owner && (!currentFolder || folder.id !== currentFolder.id)).forEach((folder) => { %><option value="<%= folder.id %>"><%= folder.name %></option><% }) %></select><button class="button move-selected" id="batch-move" type="submit" formaction="/images/move" disabled>Di chuyển</button></div><button class="button delete-selected" id="batch-delete" type="submit" formaction="/images/delete-batch" disabled>⌫ Xóa ảnh đã chọn</button><button class="button delete-all" type="submit" formaction="/images/delete-all">Xóa tất cả ảnh</button><% } %></div></div>
         <section class="gallery">
-          <% images.forEach((item) => { %><article class="photo-card">
+          <% images.forEach((item) => { %><article class="photo-card" draggable="<%= Number(item.user_id) === Number(user.id) ? 'true' : 'false' %>" data-image-id="<%= item.id %>">
             <label class="photo-select"><input class="image-checkbox" type="checkbox" name="imageIds" value="<%= item.id %>"><span>✓</span></label>
-            <a href="/images/<%= item.id %>" target="_blank"><img src="/images/<%= item.id %>" alt="<%= item.original_name %>" loading="lazy"></a>
+            <a href="/images/<%= item.id %>" target="_blank"><img src="/images/<%= item.id %>/thumbnail" alt="<%= item.original_name %>" loading="lazy"></a>
             <div class="photo-meta"><div><strong title="<%= item.original_name %>"><%= item.original_name %></strong><small><%= (item.size_bytes / 1024 / 1024).toFixed(2) %> MB · <%= new Intl.DateTimeFormat('vi-VN').format(new Date(item.created_at)) %></small></div>
             <div class="photo-actions"><a class="download-button" href="/images/<%= item.id %>/download" title="Tải ảnh xuống">↓</a><% if (Number(item.user_id) === Number(user.id)) { %><button class="delete-button" type="submit" formaction="/images/<%= item.id %>/delete" onclick="return confirm('Xóa ảnh này?')" title="Xóa ảnh">×</button><% } %></div></div>
           </article><% }) %>

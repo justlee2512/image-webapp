@@ -8,12 +8,39 @@ const helmet = require('helmet');
 const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const archiver = require('archiver');
+const sharp = require('sharp');
 const pool = require('./db');
+
+sharp.cache(false);
+sharp.concurrency(1);
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const maxAccounts = Number(process.env.MAX_ACCOUNTS || 5);
 const maxFileSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 30);
+
+class Semaphore {
+  constructor(limit) { this.limit = limit; this.active = 0; this.waiters = []; }
+  acquire() {
+    return new Promise((resolve) => {
+      const enter = () => {
+        this.active += 1;
+        let released = false;
+        resolve(() => {
+          if (released) return;
+          released = true;
+          this.active -= 1;
+          const next = this.waiters.shift();
+          if (next) next();
+        });
+      };
+      if (this.active < this.limit) enter(); else this.waiters.push(enter);
+    });
+  }
+}
+
+const uploadQueue = new Semaphore(Number(process.env.MAX_CONCURRENT_UPLOADS || 1));
+const downloadQueue = new Semaphore(Number(process.env.MAX_CONCURRENT_DOWNLOADS || 2));
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
@@ -198,13 +225,33 @@ app.post('/folders/:id/unshare', authRequired, async (req, res) => {
   res.redirect(driveUrl(req.params.id));
 });
 
+app.post('/images/move', authRequired, async (req, res) => {
+  const ids = Array.isArray(req.body.imageIds) ? req.body.imageIds : req.body.imageIds ? [req.body.imageIds] : [];
+  const targetFolderId = req.body.targetFolderId ? String(req.body.targetFolderId) : null;
+  const currentFolderId = req.body.currentFolderId ? String(req.body.currentFolderId) : null;
+  const wantsJson = req.get('X-Requested-With') === 'XMLHttpRequest';
+  const finish = (ok, message) => wantsJson
+    ? res.status(ok ? 200 : 400).json({ ok, message })
+    : (() => { req.session[ok ? 'success' : 'error'] = message; return res.redirect(driveUrl(currentFolderId)); })();
+  if (!ids.length || ids.length > 1000) return finish(false, 'Vui lòng chọn ảnh cần di chuyển.');
+  try {
+    if (targetFolderId) {
+      const folder = await pool.query('SELECT id FROM image_drive.folders WHERE id = $1 AND owner_id = $2', [targetFolderId, req.session.user.id]);
+      if (!folder.rowCount) return finish(false, 'Bạn không có quyền chuyển ảnh vào folder này.');
+    }
+    const result = await pool.query('UPDATE image_drive.images SET folder_id = $1 WHERE id = ANY($2::uuid[]) AND user_id = $3 RETURNING id', [targetFolderId, ids, req.session.user.id]);
+    return finish(true, `Đã chuyển ${result.rowCount} ảnh.`);
+  } catch (error) { console.error(error); return finish(false, 'Không thể di chuyển ảnh.'); }
+});
+
 app.post('/images', authRequired, (req, res) => {
-  upload.fields([{ name: 'image', maxCount: 1 }, { name: 'images', maxCount: 1 }])(req, res, async (error) => {
+  uploadQueue.acquire().then((releaseUpload) => upload.fields([{ name: 'image', maxCount: 1 }, { name: 'images', maxCount: 1 }])(req, res, async (error) => {
     const folderId = req.body && req.body.folderId ? String(req.body.folderId) : null;
     const redirectTo = driveUrl(folderId);
     const uploadedFile = req.files && ((req.files.image && req.files.image[0]) || (req.files.images && req.files.images[0]));
     const isQueueUpload = req.get('X-Upload-Queue') === 'sequential';
     const finish = (ok, message) => {
+      releaseUpload();
       if (isQueueUpload) return res.status(ok ? 200 : 400).json({ ok, message });
       req.session[ok ? 'success' : 'error'] = message;
       return res.redirect(redirectTo);
@@ -214,23 +261,51 @@ app.post('/images', authRequired, (req, res) => {
     try {
       const access = await getFolderAccess(folderId, req.session.user.id);
       if (!access || !access.isOwner) return finish(false, 'Bạn không có quyền tải ảnh vào folder này.');
+      const thumbnail = await sharp(uploadedFile.buffer, { failOn: 'none', animated: false })
+        .rotate().resize({ width: 520, height: 390, fit: 'cover', withoutEnlargement: true })
+        .webp({ quality: 72 }).toBuffer();
       await pool.query(
-        'INSERT INTO image_drive.images (id, user_id, folder_id, original_name, mime_type, size_bytes, image_data) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [crypto.randomUUID(), req.session.user.id, folderId, uploadedFile.originalname.slice(0, 255), uploadedFile.mimetype, uploadedFile.size, uploadedFile.buffer]
+        'INSERT INTO image_drive.images (id, user_id, folder_id, original_name, mime_type, size_bytes, image_data, thumbnail_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [crypto.randomUUID(), req.session.user.id, folderId, uploadedFile.originalname.slice(0, 255), uploadedFile.mimetype, uploadedFile.size, uploadedFile.buffer, thumbnail]
       );
       return finish(true, 'Đã tải lên 1 ảnh.');
     } catch (dbError) { console.error(dbError); return finish(false, 'Không thể lưu ảnh.'); }
-  });
+  }));
+});
+
+app.get('/images/:id/thumbnail', authRequired, async (req, res) => {
+  const release = await downloadQueue.acquire();
+  try {
+    let result = await pool.query(`SELECT i.thumbnail_data FROM image_drive.images i WHERE i.id = $1 AND (i.user_id = $2 OR EXISTS (SELECT 1 FROM image_drive.folder_shares s WHERE s.folder_id = i.folder_id AND s.user_id = $2))`, [req.params.id, req.session.user.id]);
+    if (!result.rows[0]) return res.sendStatus(404);
+    let thumbnail = result.rows[0].thumbnail_data;
+    if (!thumbnail) {
+      result = await pool.query(`SELECT i.image_data FROM image_drive.images i WHERE i.id = $1 AND (i.user_id = $2 OR EXISTS (SELECT 1 FROM image_drive.folder_shares s WHERE s.folder_id = i.folder_id AND s.user_id = $2))`, [req.params.id, req.session.user.id]);
+      thumbnail = await sharp(result.rows[0].image_data, { failOn: 'none', animated: false }).rotate().resize({ width: 520, height: 390, fit: 'cover', withoutEnlargement: true }).webp({ quality: 72 }).toBuffer();
+      await pool.query('UPDATE image_drive.images SET thumbnail_data = $1 WHERE id = $2 AND thumbnail_data IS NULL', [thumbnail, req.params.id]);
+    }
+    res.set({ 'Content-Type': 'image/webp', 'Cache-Control': 'private, max-age=86400' });
+    res.send(thumbnail);
+  } catch (error) { console.error(error); if (!res.headersSent) res.sendStatus(500); }
+  finally { release(); }
 });
 
 app.get('/images/:id', authRequired, async (req, res) => {
-  const result = await pool.query(`SELECT i.original_name, i.mime_type, i.image_data FROM image_drive.images i WHERE i.id = $1 AND (i.user_id = $2 OR EXISTS (SELECT 1 FROM image_drive.folder_shares s WHERE s.folder_id = i.folder_id AND s.user_id = $2))`, [req.params.id, req.session.user.id]);
-  if (!result.rows[0]) return res.sendStatus(404);
-  res.set({ 'Content-Type': result.rows[0].mime_type, 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(result.rows[0].original_name)}`, 'Cache-Control': 'private, max-age=3600' });
-  res.send(result.rows[0].image_data);
+  const release = await downloadQueue.acquire();
+  res.once('finish', release);
+  res.once('close', release);
+  try {
+    const result = await pool.query(`SELECT i.original_name, i.mime_type, i.image_data FROM image_drive.images i WHERE i.id = $1 AND (i.user_id = $2 OR EXISTS (SELECT 1 FROM image_drive.folder_shares s WHERE s.folder_id = i.folder_id AND s.user_id = $2))`, [req.params.id, req.session.user.id]);
+    if (!result.rows[0]) return res.sendStatus(404);
+    res.set({ 'Content-Type': result.rows[0].mime_type, 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(result.rows[0].original_name)}`, 'Cache-Control': 'private, max-age=3600' });
+    res.send(result.rows[0].image_data);
+  } catch (error) { console.error(error); if (!res.headersSent) res.sendStatus(500); }
 });
 
 app.get('/images/:id/download', authRequired, async (req, res) => {
+  const release = await downloadQueue.acquire();
+  res.once('finish', release);
+  res.once('close', release);
   try {
     const result = await pool.query(
       `SELECT i.original_name, i.mime_type, i.size_bytes, i.image_data FROM image_drive.images i WHERE i.id = $1 AND (i.user_id = $2 OR EXISTS (SELECT 1 FROM image_drive.folder_shares s WHERE s.folder_id = i.folder_id AND s.user_id = $2))`,
@@ -254,9 +329,12 @@ app.get('/images/:id/download', authRequired, async (req, res) => {
 app.post('/images/download-batch', authRequired, async (req, res) => {
   const ids = Array.isArray(req.body.imageIds) ? req.body.imageIds : req.body.imageIds ? [req.body.imageIds] : [];
   if (!ids.length || ids.length > 100) return res.status(400).send('Vui lòng chọn từ 1 đến 100 ảnh.');
+  const release = await downloadQueue.acquire();
+  res.once('finish', release);
+  res.once('close', release);
   try {
     const result = await pool.query(
-      `SELECT i.original_name, i.image_data FROM image_drive.images i
+      `SELECT i.id, i.original_name FROM image_drive.images i
         WHERE i.id = ANY($1::uuid[]) AND (i.user_id = $2 OR EXISTS (
           SELECT 1 FROM image_drive.folder_shares s WHERE s.folder_id = i.folder_id AND s.user_id = $2
         ))`,
@@ -273,7 +351,16 @@ app.post('/images/download-batch', authRequired, async (req, res) => {
       const count = usedNames.get(safeName) || 0;
       usedNames.set(safeName, count + 1);
       const name = count ? `${count}-${safeName}` : safeName;
-      archive.append(image.image_data, { name });
+      const blob = await pool.query('SELECT image_data FROM image_drive.images WHERE id = $1', [image.id]);
+      if (blob.rows[0]) {
+        await new Promise((resolve, reject) => {
+          const onEntry = () => { archive.off('error', onError); resolve(); };
+          const onError = (error) => { archive.off('entry', onEntry); reject(error); };
+          archive.once('entry', onEntry);
+          archive.once('error', onError);
+          archive.append(blob.rows[0].image_data, { name });
+        });
+      }
     }
     await archive.finalize();
   } catch (error) { console.error(error); if (!res.headersSent) res.status(500).send('Không thể tạo file ZIP.'); }
