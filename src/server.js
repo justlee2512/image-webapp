@@ -19,7 +19,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(express.urlencoded({ extended: false }));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), { etag: true, maxAge: 0 }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'development-only-secret',
   resave: false,
@@ -199,9 +199,10 @@ app.post('/folders/:id/unshare', authRequired, async (req, res) => {
 });
 
 app.post('/images', authRequired, (req, res) => {
-  upload.single('image')(req, res, async (error) => {
+  upload.fields([{ name: 'image', maxCount: 1 }, { name: 'images', maxCount: 1 }])(req, res, async (error) => {
     const folderId = req.body && req.body.folderId ? String(req.body.folderId) : null;
     const redirectTo = driveUrl(folderId);
+    const uploadedFile = req.files && ((req.files.image && req.files.image[0]) || (req.files.images && req.files.images[0]));
     const isQueueUpload = req.get('X-Upload-Queue') === 'sequential';
     const finish = (ok, message) => {
       if (isQueueUpload) return res.status(ok ? 200 : 400).json({ ok, message });
@@ -209,13 +210,13 @@ app.post('/images', authRequired, (req, res) => {
       return res.redirect(redirectTo);
     };
     if (error) return finish(false, error.code === 'LIMIT_FILE_SIZE' ? `Mỗi ảnh không được lớn hơn ${maxFileSizeMb} MB.` : error.message);
-    if (!req.file) return finish(false, 'Vui lòng chọn một ảnh.');
+    if (!uploadedFile) return finish(false, 'Server không nhận được dữ liệu ảnh. Vui lòng tải lại trang và chọn ảnh lần nữa.');
     try {
       const access = await getFolderAccess(folderId, req.session.user.id);
       if (!access || !access.isOwner) return finish(false, 'Bạn không có quyền tải ảnh vào folder này.');
       await pool.query(
         'INSERT INTO image_drive.images (id, user_id, folder_id, original_name, mime_type, size_bytes, image_data) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [crypto.randomUUID(), req.session.user.id, folderId, req.file.originalname.slice(0, 255), req.file.mimetype, req.file.size, req.file.buffer]
+        [crypto.randomUUID(), req.session.user.id, folderId, uploadedFile.originalname.slice(0, 255), uploadedFile.mimetype, uploadedFile.size, uploadedFile.buffer]
       );
       return finish(true, 'Đã tải lên 1 ảnh.');
     } catch (dbError) { console.error(dbError); return finish(false, 'Không thể lưu ảnh.'); }

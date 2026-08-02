@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script>
+  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=3"><script src="/app.js?v=3" defer></script>
 </head>
 <body class="drive-page">
   <header class="topbar">
@@ -15,7 +15,7 @@
     <section class="hero-row"><div><p class="eyebrow ink"><%= currentFolder && !isOwner ? `ĐƯỢC ${currentFolder.owner_name} CHIA SẺ` : 'THƯ VIỆN CỦA TÔI' %></p><h1><%= currentFolder ? currentFolder.name : 'Những khoảnh khắc' %><br><em><%= currentFolder ? 'của chúng ta.' : 'đáng nhớ.' %></em></h1><p class="muted"><%= images.length %> ảnh trong thư mục này</p></div>
       <% if (isOwner) { %><form class="upload-form action-card" method="post" action="/images" enctype="multipart/form-data">
         <input type="hidden" name="folderId" value="<%= currentFolder ? currentFolder.id : '' %>">
-        <input id="image-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-max-size-mb="<%= maxFileSizeMb %>" multiple required hidden>
+        <input id="image-input" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp" data-max-size-mb="<%= maxFileSizeMb %>" multiple required hidden>
         <span class="action-icon">↥</span><div class="action-copy"><strong>Thêm ảnh mới</strong><small>Chọn bao nhiêu ảnh tùy thích · <%= maxFileSizeMb %> MB/ảnh</small></div><label for="image-input" class="button primary upload-button"><span>＋</span> Chọn ảnh</label>
         <div class="upload-progress" id="upload-progress" hidden><div><span id="upload-status">Đang chuẩn bị…</span><strong id="upload-percent">0%</strong></div><progress id="upload-bar" value="0" max="100"></progress></div>
       </form><% } %>
