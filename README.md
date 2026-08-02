@@ -1,6 +1,6 @@
 # Lumina Image Drive
 
-Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được lưu trực tiếp trong PostgreSQL (`BYTEA`). Hệ thống giới hạn tối đa 5 tài khoản, hỗ trợ upload nhiều ảnh, tải nhiều ảnh thành ZIP, tạo/xóa folder và chia sẻ folder chỉ đọc cho tài khoản khác.
+Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được lưu trực tiếp trong PostgreSQL (`BYTEA`). Hệ thống giới hạn tối đa 5 tài khoản, hỗ trợ upload nhiều ảnh theo hàng đợi tuần tự, tải nhiều ảnh thành ZIP, tạo/xóa folder và chia sẻ folder chỉ đọc cho tài khoản khác.
 
 ## Chạy bằng Docker
 

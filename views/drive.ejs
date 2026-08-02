@@ -15,8 +15,9 @@
     <section class="hero-row"><div><p class="eyebrow ink"><%= currentFolder && !isOwner ? `ĐƯỢC ${currentFolder.owner_name} CHIA SẺ` : 'THƯ VIỆN CỦA TÔI' %></p><h1><%= currentFolder ? currentFolder.name : 'Những khoảnh khắc' %><br><em><%= currentFolder ? 'của chúng ta.' : 'đáng nhớ.' %></em></h1><p class="muted"><%= images.length %> ảnh trong thư mục này</p></div>
       <% if (isOwner) { %><form class="upload-form" method="post" action="/images" enctype="multipart/form-data">
         <input type="hidden" name="folderId" value="<%= currentFolder ? currentFolder.id : '' %>">
-        <input id="image-input" type="file" name="images" accept="image/jpeg,image/png,image/gif,image/webp" multiple required hidden>
+        <input id="image-input" type="file" name="images" accept="image/jpeg,image/png,image/gif,image/webp" data-max-files="<%= maxBatchFiles %>" multiple required hidden>
         <label for="image-input" class="button primary upload-button"><span>＋</span> Tải nhiều ảnh</label><small>Tối đa <%= maxBatchFiles %> ảnh/lần · <%= maxFileSizeMb %> MB/ảnh</small>
+        <div class="upload-progress" id="upload-progress" hidden><div><span id="upload-status">Đang chuẩn bị…</span><strong id="upload-percent">0%</strong></div><progress id="upload-bar" value="0" max="100"></progress></div>
       </form><% } %>
     </section>
 

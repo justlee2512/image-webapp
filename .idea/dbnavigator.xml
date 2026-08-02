@@ -6,7 +6,7 @@
   </component>
   <component name="DBNavigator.Project.DataEditorManager">
     <record-view-column-sorting-type value="BY_INDEX" />
-    <value-preview-text-wrapping value="true" />
+    <value-preview-text-wrapping value="false" />
     <value-preview-pinned value="false" />
   </component>
   <component name="DBNavigator.Project.DatabaseAssistantManager">
@@ -32,30 +32,8 @@
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="91ea31d9-a042-4135-a1db-aeccf9fe3409">
-      <console name="webapp" type="STANDARD" schema="appweb" session="Main"><![CDATA[CREATE SCHEMA IF NOT EXISTS image_drive;
-
-CREATE TABLE IF NOT EXISTS image_drive.users (
-  id BIGSERIAL PRIMARY KEY,
-  username VARCHAR(30) NOT NULL,
-  email VARCHAR(255) NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT users_username_unique UNIQUE (username),
-  CONSTRAINT users_email_unique UNIQUE (email)
-);
-
-CREATE TABLE IF NOT EXISTS image_drive.images (
-  id UUID PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES image_drive.users(id) ON DELETE CASCADE,
-  original_name VARCHAR(255) NOT NULL,
-  mime_type VARCHAR(100) NOT NULL,
-  size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
-  image_data BYTEA NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS images_user_created_idx
-  ON image_drive.images (user_id, created_at DESC);]]></console>
+      <console name="webapp" type="STANDARD" schema="appweb" session="Main"><![CDATA[SELECT *
+FROM image_drive.images;]]></console>
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseEditorStateManager">
@@ -80,7 +58,11 @@ CREATE INDEX IF NOT EXISTS images_user_created_idx
     <filters />
   </component>
   <component name="DBNavigator.Project.Settings">
-    <states />
+    <states>
+      <state category="SECRET_STORAGE_MIGRATION">
+        <migrated value="true" />
+      </state>
+    </states>
     <connections>
       <connection source-id="" id="91ea31d9-a042-4135-a1db-aeccf9fe3409" active="true" signed="true">
         <database>

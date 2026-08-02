@@ -203,11 +203,17 @@ app.post('/images', authRequired, (req, res) => {
   upload.array('images', maxBatchFiles)(req, res, async (error) => {
     const folderId = req.body && req.body.folderId ? String(req.body.folderId) : null;
     const redirectTo = driveUrl(folderId);
-    if (error) { req.session.error = error.code === 'LIMIT_FILE_SIZE' ? `Mỗi ảnh không được lớn hơn ${maxFileSizeMb} MB.` : error.message; return res.redirect(redirectTo); }
-    if (!req.files || !req.files.length) { req.session.error = 'Vui lòng chọn ít nhất một ảnh.'; return res.redirect(redirectTo); }
+    const isQueueUpload = req.get('X-Upload-Queue') === 'sequential';
+    const finish = (ok, message) => {
+      if (isQueueUpload) return res.status(ok ? 200 : 400).json({ ok, message });
+      req.session[ok ? 'success' : 'error'] = message;
+      return res.redirect(redirectTo);
+    };
+    if (error) return finish(false, error.code === 'LIMIT_FILE_SIZE' ? `Mỗi ảnh không được lớn hơn ${maxFileSizeMb} MB.` : error.message);
+    if (!req.files || !req.files.length) return finish(false, 'Vui lòng chọn ít nhất một ảnh.');
     try {
       const access = await getFolderAccess(folderId, req.session.user.id);
-      if (!access || !access.isOwner) { req.session.error = 'Bạn không có quyền tải ảnh vào folder này.'; return res.redirect(redirectTo); }
+      if (!access || !access.isOwner) return finish(false, 'Bạn không có quyền tải ảnh vào folder này.');
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -216,9 +222,8 @@ app.post('/images', authRequired, (req, res) => {
         }
         await client.query('COMMIT');
       } catch (dbError) { await client.query('ROLLBACK'); throw dbError; } finally { client.release(); }
-      req.session.success = `Đã tải lên ${req.files.length} ảnh.`;
-    } catch (dbError) { console.error(dbError); req.session.error = 'Không thể lưu ảnh.'; }
-    res.redirect(redirectTo);
+      return finish(true, `Đã tải lên ${req.files.length} ảnh.`);
+    } catch (dbError) { console.error(dbError); return finish(false, 'Không thể lưu ảnh.'); }
   });
 });
 
