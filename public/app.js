@@ -148,6 +148,7 @@ let activeImageIndex = 0;
 let zoomLevel = 1;
 let fittedImageWidth = 0;
 let fittedImageHeight = 0;
+let panState = null;
 
 function setZoom(nextZoom, focalPoint) {
   const stageRect = lightboxStage.getBoundingClientRect();
@@ -214,6 +215,7 @@ function openLightbox(index) {
 }
 
 function closeLightbox() {
+  stopPanning();
   lightbox.classList.remove('open');
   lightbox.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('lightbox-open');
@@ -235,12 +237,44 @@ nextButton?.addEventListener('click', () => showLightboxImage(activeImageIndex +
 zoomInButton?.addEventListener('click', () => setZoom(zoomLevel + 0.25));
 zoomOutButton?.addEventListener('click', () => setZoom(zoomLevel - 0.25));
 zoomLevelButton?.addEventListener('click', () => setZoom(1));
-lightboxImage?.addEventListener('dblclick', (event) => setZoom(zoomLevel === 1 ? 2 : 1, event));
+lightboxStage?.addEventListener('dblclick', (event) => setZoom(zoomLevel === 1 ? 2 : 1, event));
 lightboxStage?.addEventListener('wheel', (event) => {
   if (!lightbox?.classList.contains('open')) return;
   event.preventDefault();
   setZoom(zoomLevel + (event.deltaY < 0 ? 0.25 : -0.25), event);
 }, { passive: false });
+
+lightboxStage?.addEventListener('pointerdown', (event) => {
+  if (zoomLevel <= 1 || (event.pointerType === 'mouse' && event.button !== 0)) return;
+  event.preventDefault();
+  panState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    scrollLeft: lightboxStage.scrollLeft,
+    scrollTop: lightboxStage.scrollTop
+  };
+  lightboxStage.setPointerCapture(event.pointerId);
+  lightboxStage.classList.add('is-panning');
+});
+
+lightboxStage?.addEventListener('pointermove', (event) => {
+  if (!panState || panState.pointerId !== event.pointerId) return;
+  event.preventDefault();
+  lightboxStage.scrollLeft = panState.scrollLeft - (event.clientX - panState.startX);
+  lightboxStage.scrollTop = panState.scrollTop - (event.clientY - panState.startY);
+});
+
+function stopPanning(event) {
+  if (!panState || (event && panState.pointerId !== event.pointerId)) return;
+  if (event && lightboxStage.hasPointerCapture(event.pointerId)) lightboxStage.releasePointerCapture(event.pointerId);
+  panState = null;
+  lightboxStage.classList.remove('is-panning');
+}
+
+lightboxStage?.addEventListener('pointerup', stopPanning);
+lightboxStage?.addEventListener('pointercancel', stopPanning);
+lightboxStage?.addEventListener('lostpointercapture', () => stopPanning());
 document.addEventListener('keydown', (event) => {
   if (!lightbox?.classList.contains('open')) return;
   if (event.key === 'Escape') closeLightbox();
