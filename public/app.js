@@ -130,3 +130,58 @@ folderTargets.forEach((folder) => {
     } catch (error) { window.alert(error.message || 'Không thể di chuyển ảnh.'); }
   });
 });
+
+const previews = [...document.querySelectorAll('.photo-preview')];
+const lightbox = document.querySelector('#lightbox');
+const lightboxImage = document.querySelector('#lightbox-image');
+const lightboxName = document.querySelector('#lightbox-name');
+const lightboxCount = document.querySelector('#lightbox-count');
+const lightboxDownload = document.querySelector('#lightbox-download');
+const lightboxLoader = document.querySelector('#lightbox-loader');
+const previousButton = document.querySelector('#lightbox-prev');
+const nextButton = document.querySelector('#lightbox-next');
+let activeImageIndex = 0;
+
+function showLightboxImage(index) {
+  if (!previews.length) return;
+  activeImageIndex = (index + previews.length) % previews.length;
+  const preview = previews[activeImageIndex];
+  const imageId = preview.dataset.imageId;
+  const imageName = preview.dataset.imageName;
+  lightbox.classList.add('loading');
+  lightboxLoader.hidden = false;
+  lightboxImage.classList.remove('loaded');
+  lightboxImage.alt = imageName;
+  lightboxName.textContent = imageName;
+  lightboxCount.textContent = `${activeImageIndex + 1} / ${previews.length}`;
+  lightboxDownload.href = `/images/${imageId}/download`;
+  lightboxImage.src = `/images/${imageId}`;
+  previousButton.hidden = previews.length < 2;
+  nextButton.hidden = previews.length < 2;
+}
+
+function openLightbox(index) {
+  showLightboxImage(index);
+  lightbox.classList.add('open');
+  lightbox.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('lightbox-open');
+}
+
+function closeLightbox() {
+  lightbox.classList.remove('open');
+  lightbox.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('lightbox-open');
+  window.setTimeout(() => { if (!lightbox.classList.contains('open')) lightboxImage.src = ''; }, 250);
+}
+
+previews.forEach((preview, index) => preview.addEventListener('click', (event) => { event.preventDefault(); openLightbox(index); }));
+lightboxImage?.addEventListener('load', () => { lightbox.classList.remove('loading'); lightboxLoader.hidden = true; lightboxImage.classList.add('loaded'); });
+document.querySelectorAll('[data-lightbox-close]').forEach((element) => element.addEventListener('click', closeLightbox));
+previousButton?.addEventListener('click', () => showLightboxImage(activeImageIndex - 1));
+nextButton?.addEventListener('click', () => showLightboxImage(activeImageIndex + 1));
+document.addEventListener('keydown', (event) => {
+  if (!lightbox?.classList.contains('open')) return;
+  if (event.key === 'Escape') closeLightbox();
+  if (event.key === 'ArrowLeft') showLightboxImage(activeImageIndex - 1);
+  if (event.key === 'ArrowRight') showLightboxImage(activeImageIndex + 1);
+});

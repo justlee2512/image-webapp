@@ -104,10 +104,12 @@ app.post('/register', async (req, res) => {
   const username = String(req.body.username || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
+  const passwordConfirm = String(req.body.passwordConfirm || '');
   const form = { username, email };
   if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) return renderAuth(res, 'register', { status: 400, error: 'Tên tài khoản cần 3–30 ký tự, chỉ gồm chữ, số và dấu gạch dưới.', form });
   if (!/^\S+@\S+\.\S+$/.test(email)) return renderAuth(res, 'register', { status: 400, error: 'Email không hợp lệ.', form });
   if (password.length < 8) return renderAuth(res, 'register', { status: 400, error: 'Mật khẩu cần ít nhất 8 ký tự.', form });
+  if (password !== passwordConfirm) return renderAuth(res, 'register', { status: 400, error: 'Hai mật khẩu không trùng khớp.', form });
 
   const client = await pool.connect();
   try {

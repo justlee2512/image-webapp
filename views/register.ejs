@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tạo tài khoản · Lumina Drive</title><link rel="stylesheet" href="/styles.css">
+  <title>Tạo tài khoản · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=7"><script src="/auth.js?v=1" defer></script>
 </head>
 <body class="auth-page">
   <main class="auth-shell">
@@ -18,7 +18,8 @@
         <% if (error) { %><div class="alert error"><%= error %></div><% } %>
         <label>Tên tài khoản<input name="username" value="<%= form.username || '' %>" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" required placeholder="nguyen_an"></label>
         <label>Email<input type="email" name="email" value="<%= form.email || '' %>" autocomplete="email" required placeholder="ban@example.com"></label>
-        <label>Mật khẩu<input type="password" name="password" minlength="8" autocomplete="new-password" required placeholder="Tối thiểu 8 ký tự"></label>
+        <label>Mật khẩu<div class="password-field"><input id="register-password" type="password" name="password" minlength="8" autocomplete="new-password" required placeholder="Tối thiểu 8 ký tự"><button class="password-toggle" type="button" data-password-toggle aria-label="Hiện mật khẩu" aria-pressed="false">Hiện</button></div></label>
+        <label>Nhập lại mật khẩu<div class="password-field"><input id="register-password-confirm" type="password" name="passwordConfirm" minlength="8" autocomplete="new-password" required placeholder="Nhập lại mật khẩu"></div><small class="password-match" id="password-match" aria-live="polite"></small></label>
         <button class="button primary wide" type="submit">Tạo tài khoản <span>→</span></button>
         <p class="switch">Đã có tài khoản? <a href="/login">Đăng nhập</a></p>
       </form>

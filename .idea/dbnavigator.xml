@@ -11,11 +11,11 @@
   </component>
   <component name="DBNavigator.Project.DatabaseAssistantManager">
     <assistants>
-      <assistant-state connection-id="91ea31d9-a042-4135-a1db-aeccf9fe3409" assistant-type="SELECT_AI" default-profile-name="" selected-chat-id="" availability="UNAVAILABLE" acknowledgement="NONE">
+      <assistant-state connection-id="91ea31d9-a042-4135-a1db-aeccf9fe3409" assistant-type="PUBLIC" default-profile-name="" selected-chat-id="" availability="AVAILABLE" acknowledgement="NONE" selected="true">
         <tools />
         <mcp-servers />
       </assistant-state>
-      <assistant-state connection-id="91ea31d9-a042-4135-a1db-aeccf9fe3409" assistant-type="PUBLIC" default-profile-name="" selected-chat-id="" availability="AVAILABLE" acknowledgement="NONE" selected="true">
+      <assistant-state connection-id="91ea31d9-a042-4135-a1db-aeccf9fe3409" assistant-type="SELECT_AI" default-profile-name="" selected-chat-id="" availability="UNAVAILABLE" acknowledgement="NONE">
         <tools />
         <mcp-servers />
       </assistant-state>
@@ -32,8 +32,8 @@
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="91ea31d9-a042-4135-a1db-aeccf9fe3409">
-      <console name="webapp" type="STANDARD" schema="appweb" session="Main"><![CDATA[SELECT *
-FROM image_drive.folders;]]></console>
+      <console name="webapp" type="STANDARD" schema="appweb" session="Main"><![CDATA[select *
+FROM image_drive.images;]]></console>
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseEditorStateManager">

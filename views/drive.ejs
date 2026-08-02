@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=4"><script src="/app.js?v=4" defer></script>
+  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=5"><script src="/app.js?v=5" defer></script>
 </head>
 <body class="drive-page">
   <header class="topbar">
@@ -53,7 +53,7 @@
         <section class="gallery">
           <% images.forEach((item) => { %><article class="photo-card" draggable="<%= Number(item.user_id) === Number(user.id) ? 'true' : 'false' %>" data-image-id="<%= item.id %>">
             <label class="photo-select"><input class="image-checkbox" type="checkbox" name="imageIds" value="<%= item.id %>"><span>✓</span></label>
-            <a href="/images/<%= item.id %>" target="_blank"><img src="/images/<%= item.id %>/thumbnail" alt="<%= item.original_name %>" loading="lazy"></a>
+            <a class="photo-preview" href="/images/<%= item.id %>" data-image-id="<%= item.id %>" data-image-name="<%= item.original_name %>"><img src="/images/<%= item.id %>/thumbnail" alt="<%= item.original_name %>" loading="lazy"></a>
             <div class="photo-meta"><div><strong title="<%= item.original_name %>"><%= item.original_name %></strong><small><%= (item.size_bytes / 1024 / 1024).toFixed(2) %> MB · <%= new Intl.DateTimeFormat('vi-VN').format(new Date(item.created_at)) %></small></div>
             <div class="photo-actions"><a class="download-button" href="/images/<%= item.id %>/download" title="Tải ảnh xuống">↓</a><% if (Number(item.user_id) === Number(user.id)) { %><button class="delete-button" type="submit" formaction="/images/<%= item.id %>/delete" onclick="return confirm('Xóa ảnh này?')" title="Xóa ảnh">×</button><% } %></div></div>
           </article><% }) %>
@@ -61,4 +61,11 @@
       </form>
     <% } %>
   </main>
+  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Xem ảnh">
+    <div class="lightbox-backdrop" data-lightbox-close></div>
+    <div class="lightbox-header"><div><strong id="lightbox-name"></strong><small id="lightbox-count"></small></div><div class="lightbox-actions"><a id="lightbox-download" class="lightbox-button" href="#" title="Tải ảnh xuống">↓ <span>Tải xuống</span></a><button class="lightbox-button close-lightbox" type="button" data-lightbox-close title="Đóng">×</button></div></div>
+    <button class="lightbox-nav lightbox-prev" id="lightbox-prev" type="button" aria-label="Ảnh trước">‹</button>
+    <figure class="lightbox-stage"><div class="lightbox-loader" id="lightbox-loader"></div><img id="lightbox-image" alt=""></figure>
+    <button class="lightbox-nav lightbox-next" id="lightbox-next" type="button" aria-label="Ảnh tiếp theo">›</button>
+  </div>
 </body></html>
