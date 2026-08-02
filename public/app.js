@@ -149,7 +149,14 @@ let zoomLevel = 1;
 let fittedImageWidth = 0;
 let fittedImageHeight = 0;
 
-function setZoom(nextZoom) {
+function setZoom(nextZoom, focalPoint) {
+  const stageRect = lightboxStage.getBoundingClientRect();
+  const imageRectBefore = lightboxImage.getBoundingClientRect();
+  const point = focalPoint || { clientX: stageRect.left + stageRect.width / 2, clientY: stageRect.top + stageRect.height / 2 };
+  const imageXRatio = imageRectBefore.width ? Math.min(1, Math.max(0, (point.clientX - imageRectBefore.left) / imageRectBefore.width)) : 0.5;
+  const imageYRatio = imageRectBefore.height ? Math.min(1, Math.max(0, (point.clientY - imageRectBefore.top) / imageRectBefore.height)) : 0.5;
+  const pointerOffsetX = point.clientX - stageRect.left;
+  const pointerOffsetY = point.clientY - stageRect.top;
   zoomLevel = Math.min(4, Math.max(0.5, Math.round(nextZoom * 10) / 10));
   if (zoomLevel > 1 && fittedImageWidth && fittedImageHeight) {
     lightboxImage.style.width = `${Math.round(fittedImageWidth * zoomLevel)}px`;
@@ -166,7 +173,16 @@ function setZoom(nextZoom) {
   }
   zoomLevelButton.textContent = `${Math.round(zoomLevel * 100)}%`;
   lightboxStage.classList.toggle('is-zoomed', zoomLevel > 1);
-  if (zoomLevel === 1) { lightboxStage.scrollTop = 0; lightboxStage.scrollLeft = 0; }
+  if (zoomLevel > 1) {
+    const imageRectAfter = lightboxImage.getBoundingClientRect();
+    const imageContentLeft = imageRectAfter.left - stageRect.left + lightboxStage.scrollLeft;
+    const imageContentTop = imageRectAfter.top - stageRect.top + lightboxStage.scrollTop;
+    lightboxStage.scrollLeft = imageContentLeft + imageRectAfter.width * imageXRatio - pointerOffsetX;
+    lightboxStage.scrollTop = imageContentTop + imageRectAfter.height * imageYRatio - pointerOffsetY;
+  } else {
+    lightboxStage.scrollTop = 0;
+    lightboxStage.scrollLeft = 0;
+  }
 }
 
 function showLightboxImage(index) {
@@ -219,11 +235,11 @@ nextButton?.addEventListener('click', () => showLightboxImage(activeImageIndex +
 zoomInButton?.addEventListener('click', () => setZoom(zoomLevel + 0.25));
 zoomOutButton?.addEventListener('click', () => setZoom(zoomLevel - 0.25));
 zoomLevelButton?.addEventListener('click', () => setZoom(1));
-lightboxImage?.addEventListener('dblclick', () => setZoom(zoomLevel === 1 ? 2 : 1));
+lightboxImage?.addEventListener('dblclick', (event) => setZoom(zoomLevel === 1 ? 2 : 1, event));
 lightboxStage?.addEventListener('wheel', (event) => {
   if (!lightbox?.classList.contains('open')) return;
   event.preventDefault();
-  setZoom(zoomLevel + (event.deltaY < 0 ? 0.25 : -0.25));
+  setZoom(zoomLevel + (event.deltaY < 0 ? 0.25 : -0.25), event);
 }, { passive: false });
 document.addEventListener('keydown', (event) => {
   if (!lightbox?.classList.contains('open')) return;
