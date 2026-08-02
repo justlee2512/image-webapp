@@ -1,0 +1,21 @@
+{
+  "name": "image-drive",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A small Google Drive-like image storage app",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.5.0",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.1",
+    "pg": "^8.16.0"
+  }
+}

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tạo tài khoản · Lumina Drive</title><link rel="stylesheet" href="/styles.css">
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-story register-story">
+      <a class="brand brand-light" href="/"><span class="brand-mark">L</span><span>Lumina</span></a>
+      <div><p class="eyebrow">THƯ VIỆN CÁ NHÂN</p><h1>Ảnh của bạn.<br>Không gian của bạn.</h1><p class="story-copy">Bắt đầu xây dựng bộ sưu tập riêng, được bảo vệ bằng tài khoản của chính bạn.</p></div>
+      <p class="story-foot">Chỉ dành cho <%= maxAccounts %> thành viên đầu tiên</p>
+    </section>
+    <section class="auth-panel">
+      <form class="auth-card" method="post" action="/register">
+        <div class="mobile-brand"><span class="brand-mark">L</span> Lumina</div>
+        <p class="eyebrow ink">BẮT ĐẦU NGAY</p><h2>Tạo tài khoản</h2><p class="muted">Hệ thống giới hạn tối đa <%= maxAccounts %> tài khoản.</p>
+        <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+        <label>Tên tài khoản<input name="username" value="<%= form.username || '' %>" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" required placeholder="nguyen_an"></label>
+        <label>Email<input type="email" name="email" value="<%= form.email || '' %>" autocomplete="email" required placeholder="ban@example.com"></label>
+        <label>Mật khẩu<input type="password" name="password" minlength="8" autocomplete="new-password" required placeholder="Tối thiểu 8 ký tự"></label>
+        <button class="button primary wide" type="submit">Tạo tài khoản <span>→</span></button>
+        <p class="switch">Đã có tài khoản? <a href="/login">Đăng nhập</a></p>
+      </form>
+    </section>
+  </main>
+</body></html>

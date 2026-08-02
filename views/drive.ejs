@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Thư viện · Lumina Drive</title><link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script>
+</head>
+<body class="drive-page">
+  <header class="topbar">
+    <a class="brand" href="/drive"><span class="brand-mark">L</span><span>Lumina</span></a>
+    <div class="user-menu"><span class="avatar"><%= user.username.charAt(0).toUpperCase() %></span><div><strong><%= user.username %></strong><small><%= user.email %></small></div><form method="post" action="/logout"><button class="link-button" title="Đăng xuất">Đăng xuất</button></form></div>
+  </header>
+  <main class="drive-shell">
+    <section class="hero-row"><div><p class="eyebrow ink">THƯ VIỆN CỦA TÔI</p><h1>Những khoảnh khắc<br><em>đáng nhớ.</em></h1><p class="muted"><%= images.length %> ảnh trong bộ sưu tập</p></div>
+      <form class="upload-form" method="post" action="/images" enctype="multipart/form-data">
+        <input id="image-input" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp" required hidden>
+        <label for="image-input" class="button primary upload-button"><span>＋</span> Tải ảnh lên</label><small>Tối đa <%= maxFileSizeMb %> MB · JPG, PNG, GIF, WebP</small>
+      </form>
+    </section>
+    <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+    <% if (success) { %><div class="alert success"><%= success %></div><% } %>
+    <% if (!images.length) { %>
+      <section class="empty-state"><div class="empty-icon">◇</div><h2>Thư viện đang chờ bạn</h2><p>Hãy tải lên bức ảnh đầu tiên để bắt đầu bộ sưu tập.</p><label for="image-input" class="button outline">Chọn một bức ảnh</label></section>
+    <% } else { %>
+      <section class="gallery">
+        <% images.forEach((item) => { %><article class="photo-card">
+          <a href="/images/<%= item.id %>" target="_blank"><img src="/images/<%= item.id %>" alt="<%= item.original_name %>" loading="lazy"></a>
+          <div class="photo-meta"><div><strong title="<%= item.original_name %>"><%= item.original_name %></strong><small><%= (item.size_bytes / 1024 / 1024).toFixed(2) %> MB · <%= new Intl.DateTimeFormat('vi-VN').format(new Date(item.created_at)) %></small></div>
+          <form method="post" action="/images/<%= item.id %>/delete" onsubmit="return confirm('Xóa ảnh này?')"><button class="delete-button" title="Xóa ảnh">×</button></form></div>
+        </article><% }) %>
+      </section>
+    <% } %>
+  </main>
+</body></html>

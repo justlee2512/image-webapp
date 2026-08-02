@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST:-192.168.2.90}:${DB_PORT:-5432}/${DB_NAME:-webapp}
+      SESSION_SECRET: ${SESSION_SECRET}
+      MAX_ACCOUNTS: ${MAX_ACCOUNTS:-5}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-10}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
