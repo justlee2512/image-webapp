@@ -33,7 +33,7 @@
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="91ea31d9-a042-4135-a1db-aeccf9fe3409">
       <console name="webapp" type="STANDARD" schema="appweb" session="Main"><![CDATA[SELECT *
-FROM image_drive.images;]]></console>
+FROM image_drive.folders;]]></console>
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseEditorStateManager">

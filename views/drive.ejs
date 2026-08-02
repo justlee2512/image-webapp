@@ -13,10 +13,10 @@
     <nav class="breadcrumbs"><a href="/drive">Thư viện</a><% if (currentFolder) { %><span>›</span><strong><%= currentFolder.name %></strong><% } %></nav>
 
     <section class="hero-row"><div><p class="eyebrow ink"><%= currentFolder && !isOwner ? `ĐƯỢC ${currentFolder.owner_name} CHIA SẺ` : 'THƯ VIỆN CỦA TÔI' %></p><h1><%= currentFolder ? currentFolder.name : 'Những khoảnh khắc' %><br><em><%= currentFolder ? 'của chúng ta.' : 'đáng nhớ.' %></em></h1><p class="muted"><%= images.length %> ảnh trong thư mục này</p></div>
-      <% if (isOwner) { %><form class="upload-form" method="post" action="/images" enctype="multipart/form-data">
+      <% if (isOwner) { %><form class="upload-form action-card" method="post" action="/images" enctype="multipart/form-data">
         <input type="hidden" name="folderId" value="<%= currentFolder ? currentFolder.id : '' %>">
-        <input id="image-input" type="file" name="images" accept="image/jpeg,image/png,image/gif,image/webp" data-max-files="<%= maxBatchFiles %>" multiple required hidden>
-        <label for="image-input" class="button primary upload-button"><span>＋</span> Tải nhiều ảnh</label><small>Tối đa <%= maxBatchFiles %> ảnh/lần · <%= maxFileSizeMb %> MB/ảnh</small>
+        <input id="image-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-max-size-mb="<%= maxFileSizeMb %>" multiple required hidden>
+        <span class="action-icon">↥</span><div class="action-copy"><strong>Thêm ảnh mới</strong><small>Chọn bao nhiêu ảnh tùy thích · <%= maxFileSizeMb %> MB/ảnh</small></div><label for="image-input" class="button primary upload-button"><span>＋</span> Chọn ảnh</label>
         <div class="upload-progress" id="upload-progress" hidden><div><span id="upload-status">Đang chuẩn bị…</span><strong id="upload-percent">0%</strong></div><progress id="upload-bar" value="0" max="100"></progress></div>
       </form><% } %>
     </section>
@@ -26,8 +26,8 @@
 
     <% if (!currentFolder) { %>
       <section class="folder-section">
-        <div class="section-title"><div><p class="eyebrow ink">FOLDERS</p><h2>Thư mục</h2></div>
-          <form class="create-folder-form" method="post" action="/folders"><input name="name" maxlength="100" required placeholder="Tên folder mới"><button class="button outline" type="submit">＋ Tạo folder</button></form>
+        <div class="section-title"><div><p class="eyebrow ink">FOLDERS</p><h2>Thư mục của bạn</h2><p class="muted section-subtitle">Sắp xếp ảnh theo từng chủ đề và chia sẻ với bạn bè.</p></div>
+          <form class="create-folder-form action-card" method="post" action="/folders"><span class="action-icon folder-add-icon">＋</span><div class="folder-input-wrap"><label for="folder-name">Tạo thư mục mới</label><input id="folder-name" name="name" maxlength="100" required placeholder="Ví dụ: Du lịch Đà Lạt"></div><button class="button outline" type="submit">Tạo folder →</button></form>
         </div>
         <% if (folders.length) { %><div class="folder-grid"><% folders.forEach((folder) => { %>
           <a class="folder-card" href="/drive?folder=<%= folder.id %>"><span class="folder-icon">▰</span><span><strong><%= folder.name %></strong><small><%= folder.image_count %> ảnh · <%= folder.is_owner ? 'Của tôi' : `Chia sẻ bởi ${folder.owner_name}` %></small></span><span>→</span></a>
@@ -47,7 +47,8 @@
       <section class="empty-state"><div class="empty-icon">◇</div><h2>Folder đang trống</h2><p><%= isOwner ? 'Hãy tải lên những bức ảnh đầu tiên.' : 'Chủ folder chưa tải ảnh lên.' %></p><% if (isOwner) { %><label for="image-input" class="button outline">Chọn nhiều ảnh</label><% } %></section>
     <% } else { %>
       <form method="post" action="/images/download-batch" id="batch-form">
-        <div class="batch-toolbar"><label><input id="select-all" type="checkbox"> Chọn tất cả</label><button class="button outline" id="batch-download" disabled>↓ Tải ảnh đã chọn (.zip)</button></div>
+        <input type="hidden" name="folderId" value="<%= currentFolder ? currentFolder.id : '' %>">
+        <div class="batch-toolbar"><label class="select-all-label"><input id="select-all" type="checkbox"> <span>Chọn tất cả</span></label><div class="batch-actions"><button class="button outline" id="batch-download" disabled>↓ Tải ảnh đã chọn</button><% if (isOwner) { %><button class="button delete-selected" id="batch-delete" type="submit" formaction="/images/delete-batch" disabled>⌫ Xóa ảnh đã chọn</button><button class="button delete-all" type="submit" formaction="/images/delete-all">Xóa tất cả ảnh</button><% } %></div></div>
         <section class="gallery">
           <% images.forEach((item) => { %><article class="photo-card">
             <label class="photo-select"><input class="image-checkbox" type="checkbox" name="imageIds" value="<%= item.id %>"><span>✓</span></label>

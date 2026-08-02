@@ -1,6 +1,6 @@
 # Lumina Image Drive
 
-Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được lưu trực tiếp trong PostgreSQL (`BYTEA`). Hệ thống giới hạn tối đa 5 tài khoản, hỗ trợ upload nhiều ảnh theo hàng đợi tuần tự, tải nhiều ảnh thành ZIP, tạo/xóa folder và chia sẻ folder chỉ đọc cho tài khoản khác.
+Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được lưu trực tiếp trong PostgreSQL (`BYTEA`). Hệ thống giới hạn tối đa 5 tài khoản, hỗ trợ upload tuần tự, chọn/xóa nhiều ảnh, xóa toàn bộ ảnh trong folder, tải nhiều ảnh thành ZIP, tạo/xóa folder và chia sẻ folder chỉ đọc cho tài khoản khác.
 
 ## Chạy bằng Docker
 
@@ -32,7 +32,7 @@ npm install
 npm start
 ```
 
-Mặc định hỗ trợ JPG, PNG, GIF, WebP, tối đa 100 MB mỗi ảnh và 20 ảnh mỗi lượt. Có thể đổi qua các biến môi trường `MAX_FILE_SIZE_MB` và `MAX_BATCH_FILES`.
+Mặc định hỗ trợ JPG, PNG, GIF, WebP, tối đa 30 MB mỗi ảnh và không giới hạn số ảnh được chọn. Ảnh được upload tuần tự, mỗi request chỉ chứa một ảnh. Có thể đổi giới hạn dung lượng qua biến môi trường `MAX_FILE_SIZE_MB`.
 
 ## Dùng PostgreSQL có sẵn
 

@@ -13,8 +13,7 @@ const pool = require('./db');
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const maxAccounts = Number(process.env.MAX_ACCOUNTS || 5);
-const maxFileSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 100);
-const maxBatchFiles = Number(process.env.MAX_BATCH_FILES || 20);
+const maxFileSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 30);
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
@@ -153,7 +152,7 @@ app.get('/drive', authRequired, async (req, res) => {
       user: req.session.user, images: imagesResult.rows, folders: foldersResult.rows,
       currentFolder: access.folder, isOwner: access.isOwner, sharedUsers: sharesResult.rows,
       error: req.session.error || null, success: req.session.success || null,
-      maxFileSizeMb, maxBatchFiles
+      maxFileSizeMb
     });
     delete req.session.error; delete req.session.success;
   } catch (error) { console.error(error); res.status(500).send('Không thể tải thư viện ảnh.'); }
@@ -200,7 +199,7 @@ app.post('/folders/:id/unshare', authRequired, async (req, res) => {
 });
 
 app.post('/images', authRequired, (req, res) => {
-  upload.array('images', maxBatchFiles)(req, res, async (error) => {
+  upload.single('image')(req, res, async (error) => {
     const folderId = req.body && req.body.folderId ? String(req.body.folderId) : null;
     const redirectTo = driveUrl(folderId);
     const isQueueUpload = req.get('X-Upload-Queue') === 'sequential';
@@ -210,19 +209,15 @@ app.post('/images', authRequired, (req, res) => {
       return res.redirect(redirectTo);
     };
     if (error) return finish(false, error.code === 'LIMIT_FILE_SIZE' ? `Mỗi ảnh không được lớn hơn ${maxFileSizeMb} MB.` : error.message);
-    if (!req.files || !req.files.length) return finish(false, 'Vui lòng chọn ít nhất một ảnh.');
+    if (!req.file) return finish(false, 'Vui lòng chọn một ảnh.');
     try {
       const access = await getFolderAccess(folderId, req.session.user.id);
       if (!access || !access.isOwner) return finish(false, 'Bạn không có quyền tải ảnh vào folder này.');
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-        for (const file of req.files) {
-          await client.query('INSERT INTO image_drive.images (id, user_id, folder_id, original_name, mime_type, size_bytes, image_data) VALUES ($1, $2, $3, $4, $5, $6, $7)', [crypto.randomUUID(), req.session.user.id, folderId, file.originalname.slice(0, 255), file.mimetype, file.size, file.buffer]);
-        }
-        await client.query('COMMIT');
-      } catch (dbError) { await client.query('ROLLBACK'); throw dbError; } finally { client.release(); }
-      return finish(true, `Đã tải lên ${req.files.length} ảnh.`);
+      await pool.query(
+        'INSERT INTO image_drive.images (id, user_id, folder_id, original_name, mime_type, size_bytes, image_data) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [crypto.randomUUID(), req.session.user.id, folderId, req.file.originalname.slice(0, 255), req.file.mimetype, req.file.size, req.file.buffer]
+      );
+      return finish(true, 'Đã tải lên 1 ảnh.');
     } catch (dbError) { console.error(dbError); return finish(false, 'Không thể lưu ảnh.'); }
   });
 });
@@ -281,6 +276,47 @@ app.post('/images/download-batch', authRequired, async (req, res) => {
     }
     await archive.finalize();
   } catch (error) { console.error(error); if (!res.headersSent) res.status(500).send('Không thể tạo file ZIP.'); }
+});
+
+app.post('/images/delete-batch', authRequired, async (req, res) => {
+  const ids = Array.isArray(req.body.imageIds) ? req.body.imageIds : req.body.imageIds ? [req.body.imageIds] : [];
+  const folderId = req.body.folderId ? String(req.body.folderId) : null;
+  if (!ids.length || ids.length > 1000) {
+    req.session.error = 'Vui lòng chọn ít nhất một ảnh để xóa.';
+    return res.redirect(driveUrl(folderId));
+  }
+  try {
+    const result = await pool.query(
+      'DELETE FROM image_drive.images WHERE id = ANY($1::uuid[]) AND user_id = $2 RETURNING id',
+      [ids, req.session.user.id]
+    );
+    req.session.success = `Đã xóa ${result.rowCount} ảnh.`;
+  } catch (error) {
+    console.error(error);
+    req.session.error = 'Không thể xóa các ảnh đã chọn.';
+  }
+  res.redirect(driveUrl(folderId));
+});
+
+app.post('/images/delete-all', authRequired, async (req, res) => {
+  const folderId = req.body.folderId ? String(req.body.folderId) : null;
+  try {
+    if (folderId) {
+      const access = await getFolderAccess(folderId, req.session.user.id);
+      if (!access || !access.isOwner) {
+        req.session.error = 'Bạn không có quyền xóa ảnh trong folder này.';
+        return res.redirect(driveUrl(folderId));
+      }
+    }
+    const result = folderId
+      ? await pool.query('DELETE FROM image_drive.images WHERE user_id = $1 AND folder_id = $2 RETURNING id', [req.session.user.id, folderId])
+      : await pool.query('DELETE FROM image_drive.images WHERE user_id = $1 AND folder_id IS NULL RETURNING id', [req.session.user.id]);
+    req.session.success = `Đã xóa toàn bộ ${result.rowCount} ảnh trong thư mục hiện tại.`;
+  } catch (error) {
+    console.error(error);
+    req.session.error = 'Không thể xóa toàn bộ ảnh.';
+  }
+  res.redirect(driveUrl(folderId));
 });
 
 app.post('/images/:id/delete', authRequired, async (req, res) => {
