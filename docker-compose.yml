@@ -22,6 +22,7 @@ services:
       SESSION_SECRET: local-docker-secret-change-in-production
       MAX_ACCOUNTS: 5
       MAX_FILE_SIZE_MB: 100
+      MAX_BATCH_FILES: 20
     ports:
       - "3000:3000"
     depends_on:

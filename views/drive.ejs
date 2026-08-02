@@ -2,32 +2,60 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Thư viện · Lumina Drive</title><link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script>
+  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script>
 </head>
 <body class="drive-page">
   <header class="topbar">
     <a class="brand" href="/drive"><span class="brand-mark">L</span><span>Lumina</span></a>
-    <div class="user-menu"><span class="avatar"><%= user.username.charAt(0).toUpperCase() %></span><div><strong><%= user.username %></strong><small><%= user.email %></small></div><form method="post" action="/logout"><button class="link-button" title="Đăng xuất">Đăng xuất</button></form></div>
+    <div class="user-menu"><span class="avatar"><%= user.username.charAt(0).toUpperCase() %></span><div><strong><%= user.username %></strong><small><%= user.email %></small></div><form method="post" action="/logout"><button class="link-button">Đăng xuất</button></form></div>
   </header>
   <main class="drive-shell">
-    <section class="hero-row"><div><p class="eyebrow ink">THƯ VIỆN CỦA TÔI</p><h1>Những khoảnh khắc<br><em>đáng nhớ.</em></h1><p class="muted"><%= images.length %> ảnh trong bộ sưu tập</p></div>
-      <form class="upload-form" method="post" action="/images" enctype="multipart/form-data">
-        <input id="image-input" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp" required hidden>
-        <label for="image-input" class="button primary upload-button"><span>＋</span> Tải ảnh lên</label><small>Tối đa <%= maxFileSizeMb %> MB · JPG, PNG, GIF, WebP</small>
-      </form>
+    <nav class="breadcrumbs"><a href="/drive">Thư viện</a><% if (currentFolder) { %><span>›</span><strong><%= currentFolder.name %></strong><% } %></nav>
+
+    <section class="hero-row"><div><p class="eyebrow ink"><%= currentFolder && !isOwner ? `ĐƯỢC ${currentFolder.owner_name} CHIA SẺ` : 'THƯ VIỆN CỦA TÔI' %></p><h1><%= currentFolder ? currentFolder.name : 'Những khoảnh khắc' %><br><em><%= currentFolder ? 'của chúng ta.' : 'đáng nhớ.' %></em></h1><p class="muted"><%= images.length %> ảnh trong thư mục này</p></div>
+      <% if (isOwner) { %><form class="upload-form" method="post" action="/images" enctype="multipart/form-data">
+        <input type="hidden" name="folderId" value="<%= currentFolder ? currentFolder.id : '' %>">
+        <input id="image-input" type="file" name="images" accept="image/jpeg,image/png,image/gif,image/webp" multiple required hidden>
+        <label for="image-input" class="button primary upload-button"><span>＋</span> Tải nhiều ảnh</label><small>Tối đa <%= maxBatchFiles %> ảnh/lần · <%= maxFileSizeMb %> MB/ảnh</small>
+      </form><% } %>
     </section>
+
     <% if (error) { %><div class="alert error"><%= error %></div><% } %>
     <% if (success) { %><div class="alert success"><%= success %></div><% } %>
-    <% if (!images.length) { %>
-      <section class="empty-state"><div class="empty-icon">◇</div><h2>Thư viện đang chờ bạn</h2><p>Hãy tải lên bức ảnh đầu tiên để bắt đầu bộ sưu tập.</p><label for="image-input" class="button outline">Chọn một bức ảnh</label></section>
-    <% } else { %>
-      <section class="gallery">
-        <% images.forEach((item) => { %><article class="photo-card">
-          <a href="/images/<%= item.id %>" target="_blank"><img src="/images/<%= item.id %>" alt="<%= item.original_name %>" loading="lazy"></a>
-          <div class="photo-meta"><div><strong title="<%= item.original_name %>"><%= item.original_name %></strong><small><%= (item.size_bytes / 1024 / 1024).toFixed(2) %> MB · <%= new Intl.DateTimeFormat('vi-VN').format(new Date(item.created_at)) %></small></div>
-          <form method="post" action="/images/<%= item.id %>/delete" onsubmit="return confirm('Xóa ảnh này?')"><button class="delete-button" title="Xóa ảnh">×</button></form></div>
-        </article><% }) %>
+
+    <% if (!currentFolder) { %>
+      <section class="folder-section">
+        <div class="section-title"><div><p class="eyebrow ink">FOLDERS</p><h2>Thư mục</h2></div>
+          <form class="create-folder-form" method="post" action="/folders"><input name="name" maxlength="100" required placeholder="Tên folder mới"><button class="button outline" type="submit">＋ Tạo folder</button></form>
+        </div>
+        <% if (folders.length) { %><div class="folder-grid"><% folders.forEach((folder) => { %>
+          <a class="folder-card" href="/drive?folder=<%= folder.id %>"><span class="folder-icon">▰</span><span><strong><%= folder.name %></strong><small><%= folder.image_count %> ảnh · <%= folder.is_owner ? 'Của tôi' : `Chia sẻ bởi ${folder.owner_name}` %></small></span><span>→</span></a>
+        <% }) %></div><% } else { %><p class="muted">Chưa có folder nào.</p><% } %>
       </section>
+    <% } %>
+
+    <% if (currentFolder && isOwner) { %>
+      <details class="share-panel"><summary>Quản lý chia sẻ và folder</summary><div class="share-content">
+        <form method="post" action="/folders/<%= currentFolder.id %>/share" class="share-form"><input name="identity" required placeholder="Username hoặc email"><button class="button outline">Chia sẻ</button></form>
+        <% if (sharedUsers.length) { %><div class="shared-list"><% sharedUsers.forEach((sharedUser) => { %><span><%= sharedUser.username %> <small><%= sharedUser.email %></small><form method="post" action="/folders/<%= currentFolder.id %>/unshare"><input type="hidden" name="userId" value="<%= sharedUser.id %>"><button title="Thu hồi quyền">×</button></form></span><% }) %></div><% } else { %><p class="muted">Folder chưa được chia sẻ.</p><% } %>
+        <form method="post" action="/folders/<%= currentFolder.id %>/delete" onsubmit="return confirm('Xóa folder và toàn bộ ảnh bên trong? Hành động này không thể hoàn tác.')"><button class="danger-button">Xóa folder và toàn bộ ảnh</button></form>
+      </div></details>
+    <% } %>
+
+    <% if (!images.length) { %>
+      <section class="empty-state"><div class="empty-icon">◇</div><h2>Folder đang trống</h2><p><%= isOwner ? 'Hãy tải lên những bức ảnh đầu tiên.' : 'Chủ folder chưa tải ảnh lên.' %></p><% if (isOwner) { %><label for="image-input" class="button outline">Chọn nhiều ảnh</label><% } %></section>
+    <% } else { %>
+      <form method="post" action="/images/download-batch" id="batch-form">
+        <div class="batch-toolbar"><label><input id="select-all" type="checkbox"> Chọn tất cả</label><button class="button outline" id="batch-download" disabled>↓ Tải ảnh đã chọn (.zip)</button></div>
+        <section class="gallery">
+          <% images.forEach((item) => { %><article class="photo-card">
+            <label class="photo-select"><input class="image-checkbox" type="checkbox" name="imageIds" value="<%= item.id %>"><span>✓</span></label>
+            <a href="/images/<%= item.id %>" target="_blank"><img src="/images/<%= item.id %>" alt="<%= item.original_name %>" loading="lazy"></a>
+            <div class="photo-meta"><div><strong title="<%= item.original_name %>"><%= item.original_name %></strong><small><%= (item.size_bytes / 1024 / 1024).toFixed(2) %> MB · <%= new Intl.DateTimeFormat('vi-VN').format(new Date(item.created_at)) %></small></div>
+            <div class="photo-actions"><a class="download-button" href="/images/<%= item.id %>/download" title="Tải ảnh xuống">↓</a><% if (Number(item.user_id) === Number(user.id)) { %><button class="delete-button" type="submit" formaction="/images/<%= item.id %>/delete" onclick="return confirm('Xóa ảnh này?')" title="Xóa ảnh">×</button><% } %></div></div>
+          </article><% }) %>
+        </section>
+      </form>
     <% } %>
   </main>
 </body></html>

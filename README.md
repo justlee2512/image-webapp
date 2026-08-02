@@ -1,6 +1,6 @@
 # Lumina Image Drive
 
-Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được lưu trực tiếp trong PostgreSQL (`BYTEA`). Hệ thống giới hạn tối đa 5 tài khoản và mỗi người chỉ xem/xóa được ảnh của mình.
+Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được lưu trực tiếp trong PostgreSQL (`BYTEA`). Hệ thống giới hạn tối đa 5 tài khoản, hỗ trợ upload nhiều ảnh, tải nhiều ảnh thành ZIP, tạo/xóa folder và chia sẻ folder chỉ đọc cho tài khoản khác.
 
 ## Chạy bằng Docker
 
@@ -32,7 +32,7 @@ npm install
 npm start
 ```
 
-Mặc định hỗ trợ JPG, PNG, GIF, WebP, tối đa 100 MB mỗi ảnh. Có thể đổi qua biến môi trường `MAX_FILE_SIZE_MB`.
+Mặc định hỗ trợ JPG, PNG, GIF, WebP, tối đa 100 MB mỗi ảnh và 20 ảnh mỗi lượt. Có thể đổi qua các biến môi trường `MAX_FILE_SIZE_MB` và `MAX_BATCH_FILES`.
 
 ## Dùng PostgreSQL có sẵn
 
@@ -49,3 +49,9 @@ docker compose -f docker-compose.external-db.yml --env-file .env up --build
 ```
 
 PostgreSQL cần cho phép máy chạy Docker kết nối TCP đến cổng 5432. Nếu mật khẩu chứa ký tự đặc biệt dùng trong URL như `@`, `:`, `/`, `%`, hãy URL-encode giá trị đó.
+
+Khi nâng cấp từ phiên bản cũ có database đang chứa ảnh, chạy lại script sau một lần. Các lệnh dùng `IF NOT EXISTS` nên giữ nguyên dữ liệu hiện tại:
+
+```bash
+psql -h 192.168.2.90 -U YOUR_DB_USER -d webapp -f db/init.sql
+```
