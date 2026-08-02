@@ -2,18 +2,18 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Đăng nhập · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=8"><script src="/login.js?v=1" defer></script>
+  <title>Đăng nhập · Richard Le Drive</title><link rel="stylesheet" href="/styles.css?v=8"><script src="/login.js?v=1" defer></script>
 </head>
 <body class="auth-page">
   <main class="auth-shell">
     <section class="auth-story">
-      <a class="brand brand-light" href="/"><span class="brand-mark">L</span><span>Lumina</span></a>
+      <a class="brand brand-light" href="/"><span class="brand-mark">R</span><span>Richard Le</span></a>
       <div><p class="eyebrow">KHÔNG GIAN ẢNH CỦA BẠN</p><h1>Giữ lại những khoảnh khắc đáng nhớ.</h1><p class="story-copy">Một nơi riêng tư, thanh lịch để lưu giữ và xem lại mọi bức ảnh bạn yêu thích.</p></div>
       <p class="story-foot">Lưu trữ an toàn · Xem ở mọi nơi</p>
     </section>
     <section class="auth-panel">
       <form class="auth-card" id="login-form" method="post" action="/login">
-        <div class="mobile-brand"><span class="brand-mark">L</span> Lumina</div>
+        <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
         <p class="eyebrow ink">CHÀO MỪNG TRỞ LẠI</p><h2>Đăng nhập</h2><p class="muted">Tiếp tục đến thư viện ảnh của bạn.</p>
         <% if (error) { %><div class="alert error"><%= error %></div><% } %>
         <label>Tên tài khoản hoặc email<input name="identity" value="<%= form.identity || '' %>" autocomplete="username" autofocus required placeholder="ban@example.com"></label>

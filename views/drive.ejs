@@ -2,11 +2,11 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Lumina Drive</title><link rel="stylesheet" href="/styles.css?v=12"><script src="/app.js?v=9" defer></script>
+  <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Richard Le Drive</title><link rel="stylesheet" href="/styles.css?v=12"><script src="/app.js?v=9" defer></script>
 </head>
 <body class="drive-page">
   <header class="topbar">
-    <a class="brand" href="/drive"><span class="brand-mark">L</span><span>Lumina</span></a>
+    <a class="brand" href="/drive"><span class="brand-mark">R</span><span>Richard Le</span></a>
     <div class="user-menu"><span class="avatar"><%= user.username.charAt(0).toUpperCase() %></span><div><strong><%= user.username %></strong><small><%= user.email %></small></div><form method="post" action="/logout"><button class="link-button">Đăng xuất</button></form></div>
   </header>
   <main class="drive-shell">

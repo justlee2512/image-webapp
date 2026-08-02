@@ -6,7 +6,7 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
   statement_timeout: Number(process.env.DB_STATEMENT_TIMEOUT_MS || 120000),
-  application_name: 'lumina_image_drive'
+  application_name: 'richard_le_image_drive'
 });
 
 pool.on('error', (error) => {

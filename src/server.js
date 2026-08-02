@@ -343,7 +343,7 @@ app.post('/images/download-batch', authRequired, async (req, res) => {
       [ids, req.session.user.id]
     );
     if (!result.rowCount) return res.status(404).send('Không tìm thấy ảnh có quyền tải.');
-    res.attachment(`lumina-images-${Date.now()}.zip`);
+    res.attachment(`richard-le-images-${Date.now()}.zip`);
     const archive = archiver('zip', { zlib: { level: 6 } });
     archive.on('error', (error) => res.destroy(error));
     archive.pipe(res);
