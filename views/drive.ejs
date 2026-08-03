@@ -7,14 +7,15 @@
 <body class="drive-page">
   <header class="topbar">
     <a class="brand" href="/drive"><span class="brand-mark">R</span><span>Richard Le</span></a>
+    <% if (isAdmin) { %><a class="admin-quick-link" href="/admin/users">Quản trị</a><% } %>
     <div class="user-menu"><span class="avatar"><%= user.username.charAt(0).toUpperCase() %></span><div><strong><%= user.username %></strong><small><%= user.email %></small></div><form method="post" action="/logout"><button class="link-button">Đăng xuất</button></form></div>
   </header>
   <main class="drive-shell">
     <% if (isAdmin) { %><div class="marquee-banner" aria-label="Thông báo quản trị"><span>⚙️ CHẾ ĐỘ QUẢN TRỊ HOẠT ĐỘNG · Bạn có toàn quyền quản lý thư mục, ảnh và chia sẻ · Hệ thống luôn sẵn sàng cho mọi thao tác</span></div><% } %>
     <div class="intro-popups" aria-label="Thông tin giới thiệu">
-      <div class="intro-popup"><div class="intro-track"><span>📸 Lưu trữ ảnh riêng tư, đẹp mắt và luôn sẵn sàng khi bạn cần</span><span aria-hidden="true">📸 Lưu trữ ảnh riêng tư, đẹp mắt và luôn sẵn sàng khi bạn cần</span></div></div>
-      <div class="intro-popup"><div class="intro-track"><span>⚡ Chia sẻ thư mục, tải ảnh nhanh và quản lý khoảnh khắc chỉ trong vài cú nhấp</span><span aria-hidden="true">⚡ Chia sẻ thư mục, tải ảnh nhanh và quản lý khoảnh khắc chỉ trong vài cú nhấp</span></div></div>
-      <div class="intro-popup"><div class="intro-track"><span>🌿 Giao diện mượt mà, hiện đại và thư thái cho mọi lần mở thư viện</span><span aria-hidden="true">🌿 Giao diện mượt mà, hiện đại và thư thái cho mọi lần mở thư viện</span></div></div>
+      <div class="intro-popup"><div class="intro-track"><span>📸 Lưu trữ ảnh riêng tư, đẹp mắt và luôn sẵn sàng khi bạn cần</span></div></div>
+      <div class="intro-popup"><div class="intro-track"><span>⚡ Chia sẻ thư mục, tải ảnh nhanh và quản lý khoảnh khắc chỉ trong vài cú nhấp</span></div></div>
+      <div class="intro-popup"><div class="intro-track"><span>🌿 Giao diện mượt mà, hiện đại và thư thái cho mọi lần mở thư viện</span></div></div>
     </div>
     <nav class="breadcrumbs"><a href="/drive">Thư viện</a><% if (currentFolder) { %><span>›</span><strong><%= currentFolder.name %></strong><% } %></nav>
 

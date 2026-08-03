@@ -35,12 +35,6 @@ async function ensureAdminBootstrap(pool, env = process.env) {
 
   if (existing.rowCount) {
     const user = existing.rows[0];
-    const shouldUpdatePassword = [normalizeIdentity(user.username), normalizeIdentity(user.email)].includes(normalizeIdentity(config.username))
-      || [normalizeIdentity(user.username), normalizeIdentity(user.email)].includes(normalizeIdentity(config.email));
-    if (shouldUpdatePassword) {
-      const passwordHash = await bcrypt.hash(config.password, 12);
-      await pool.query('UPDATE image_drive.users SET password_hash = $1 WHERE id = $2', [passwordHash, user.id]);
-    }
     return { ...user, ...config, is_admin: true };
   }
 

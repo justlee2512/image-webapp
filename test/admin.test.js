@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isAdminUser, getAdminBootstrapConfig, validateAccountInput, validatePasswordChangeInput } = require('../src/admin');
+const { isAdminUser, getAdminBootstrapConfig, ensureAdminBootstrap, validateAccountInput, validatePasswordChangeInput } = require('../src/admin');
 
 test('detects admin users', () => {
   assert.equal(isAdminUser({ is_admin: true }), true);
@@ -48,4 +48,31 @@ test('uses environment values for the bootstrap admin', () => {
     email: 'root@example.com',
     password: 'Secret123!'
   });
+});
+
+test('does not overwrite an existing admin password during bootstrap', async () => {
+  let updateCalled = false;
+  const pool = {
+    async query(sql) {
+      if (sql.includes('FROM image_drive.users')) {
+        return { rowCount: 1, rows: [{ id: 7, username: 'admin', email: 'admin@example.com', password_hash: 'existing-hash' }] };
+      }
+      if (sql.includes('UPDATE image_drive.users')) {
+        updateCalled = true;
+        return { rowCount: 1 };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  };
+
+  const result = await ensureAdminBootstrap(pool, {
+    ADMIN_USERNAME: 'admin',
+    ADMIN_EMAIL: 'admin@example.com',
+    ADMIN_PASSWORD: 'NewPassword123!'
+  });
+
+  assert.equal(updateCalled, false);
+  assert.equal(result.is_admin, true);
+  assert.equal(result.username, 'admin');
+  assert.equal(result.email, 'admin@example.com');
 });
