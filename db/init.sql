@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS image_drive.images (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Session dùng chung cho mọi replica. Không dùng MemoryStore vì request có thể
+-- được Kubernetes chuyển sang pod khác ở bất kỳ thời điểm nào.
+CREATE TABLE IF NOT EXISTS image_drive.sessions (
+  sid VARCHAR(128) PRIMARY KEY,
+  sess JSONB NOT NULL,
+  expire TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
 -- Nâng cấp an toàn cho database đã có bảng images từ phiên bản cũ.
 ALTER TABLE image_drive.images
   ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES image_drive.folders(id) ON DELETE CASCADE;
@@ -58,8 +66,12 @@ CREATE INDEX IF NOT EXISTS images_folder_created_idx
 CREATE INDEX IF NOT EXISTS folder_shares_user_idx
   ON image_drive.folder_shares (user_id);
 
+CREATE INDEX IF NOT EXISTS sessions_expire_idx
+  ON image_drive.sessions (expire);
+
 -- Giúp PostgreSQL cập nhật thống kê sau khi thêm index/cột trên database hiện có.
 ANALYZE image_drive.users;
 ANALYZE image_drive.folders;
 ANALYZE image_drive.folder_shares;
 ANALYZE image_drive.images;
+ANALYZE image_drive.sessions;

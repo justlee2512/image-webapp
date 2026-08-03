@@ -57,3 +57,33 @@ psql -h 192.168.2.90 -U YOUR_DB_USER -d webapp -f db/init.sql
 ```
 
 Schema mới lưu thêm thumbnail WebP. Ảnh cũ tự tạo thumbnail ở lần xem đầu tiên; ảnh mới tạo thumbnail ngay khi upload. App mặc định chỉ cho 1 upload và 2 lượt đọc file lớn chạy đồng thời để bảo vệ PostgreSQL chạy trên HDD. Có thể điều chỉnh bằng `MAX_CONCURRENT_UPLOADS`, `MAX_CONCURRENT_DOWNLOADS` và `DB_POOL_MAX`.
+
+## Chạy nhiều replica trên Kubernetes
+
+Session đăng nhập được lưu trong bảng `image_drive.sessions`, nên không cần sticky session và request có thể đi tới pod bất kỳ. Trước khi rollout, chạy `db/init.sql` một lần bằng migration Job hoặc tài khoản có quyền tạo bảng/index. App cũng tự tạo bảng session nếu chưa có; PostgreSQL advisory lock bảo vệ trường hợp nhiều pod khởi động cùng lúc.
+
+Mọi pod phải dùng chung các giá trị sau:
+
+```yaml
+env:
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef: { name: image-drive, key: database-url }
+  - name: SESSION_SECRET
+    valueFrom:
+      secretKeyRef: { name: image-drive, key: session-secret }
+  - name: TRUST_PROXY
+    value: "true"
+  - name: COOKIE_SECURE
+    value: "true"
+  - name: DB_POOL_MAX
+    value: "5"
+readinessProbe:
+  httpGet: { path: /health, port: 3000 }
+livenessProbe:
+  httpGet: { path: /health, port: 3000 }
+```
+
+`SESSION_SECRET` phải cố định, giống nhau trên tất cả pod và dài ít nhất 32 ký tự. `COOKIE_SECURE=true` chỉ dùng khi người dùng truy cập qua HTTPS; nếu Ingress chỉ phục vụ HTTP thì đặt `false`. Với Ingress terminate TLS, giữ `TRUST_PROXY=true` để Express nhận đúng giao thức gốc.
+
+Tổng số connection tối đa xấp xỉ `replicas × DB_POOL_MAX`. Ví dụ 4 pod và `DB_POOL_MAX=5` có thể dùng tối đa 20 connection; cần giữ con số này thấp hơn `max_connections` của PostgreSQL sau khi chừa connection cho migration, giám sát và quản trị.

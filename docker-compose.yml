@@ -20,6 +20,9 @@ services:
       PORT: 3000
       DATABASE_URL: postgres://webapp:webapp_password@db:5432/webapp
       SESSION_SECRET: local-docker-secret-change-in-production
+      SESSION_TTL_MS: 86400000
+      TRUST_PROXY: "false"
+      COOKIE_SECURE: "false"
       MAX_ACCOUNTS: 5
       MAX_FILE_SIZE_MB: 30
       DB_POOL_MAX: 5

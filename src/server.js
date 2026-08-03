@@ -10,6 +10,7 @@ const bcrypt = require('bcryptjs');
 const archiver = require('archiver');
 const sharp = require('sharp');
 const pool = require('./db');
+const PgSessionStore = require('./pg-session-store');
 
 sharp.cache(false);
 sharp.concurrency(1);
@@ -18,6 +19,11 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const maxAccounts = Number(process.env.MAX_ACCOUNTS || 5);
 const maxFileSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 30);
+const sessionTtlMs = Number(process.env.SESSION_TTL_MS || 1000 * 60 * 60 * 24);
+
+if (process.env.NODE_ENV === 'production' && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
+  throw new Error('SESSION_SECRET phải được cấu hình giống nhau trên tất cả pod và dài ít nhất 32 ký tự.');
+}
 
 class Semaphore {
   constructor(limit) { this.limit = limit; this.active = 0; this.waiters = []; }
@@ -44,14 +50,22 @@ const downloadQueue = new Semaphore(Number(process.env.MAX_CONCURRENT_DOWNLOADS 
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
+if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { etag: true, maxAge: 0 }));
+const sessionStore = new PgSessionStore({ pool, ttlMs: sessionTtlMs });
 app.use(session({
   secret: process.env.SESSION_SECRET || 'development-only-secret',
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE === 'true', maxAge: 1000 * 60 * 60 * 24 }
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.COOKIE_SECURE === 'true',
+    maxAge: sessionTtlMs
+  }
 }));
 
 const upload = multer({
@@ -95,7 +109,7 @@ async function getFolderAccess(folderId, userId) {
 
 app.get('/', (req, res) => res.redirect(req.session.user ? '/drive' : '/login'));
 app.get('/health', async (_req, res) => {
-  try { await pool.query('SELECT 1'); res.json({ status: 'ok' }); }
+  try { await sessionStore.ready; await pool.query('SELECT 1'); res.json({ status: 'ok' }); }
   catch { res.status(503).json({ status: 'unavailable' }); }
 });
 
@@ -417,4 +431,14 @@ app.post('/images/:id/delete', authRequired, async (req, res) => {
 
 app.use((_req, res) => res.status(404).send('Không tìm thấy trang.'));
 
-app.listen(port, '0.0.0.0', () => console.log(`Image Drive running at http://localhost:${port}`));
+async function start() {
+  try {
+    await sessionStore.ready;
+    app.listen(port, '0.0.0.0', () => console.log(`Image Drive running at http://localhost:${port}`));
+  } catch (error) {
+    console.error('Không thể khởi tạo database/session store:', error);
+    process.exitCode = 1;
+  }
+}
+
+start();
