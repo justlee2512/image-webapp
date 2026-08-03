@@ -109,6 +109,8 @@ async function getFolderAccess(folderId, userId) {
 }
 
 app.get('/', (req, res) => res.redirect(req.session.user ? '/drive' : '/login'));
+// Liveness chỉ kiểm tra tiến trình Node.js, không phụ thuộc PostgreSQL.
+app.get('/live', (_req, res) => res.json({ status: 'ok' }));
 app.get('/health', async (_req, res) => {
   try { await sessionStore.ready; await pool.query('SELECT 1'); res.json({ status: 'ok' }); }
   catch { res.status(503).json({ status: 'unavailable' }); }
