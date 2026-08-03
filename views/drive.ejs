@@ -13,6 +13,11 @@
   </header>
   <main class="drive-shell">
     <% if (isAdmin) { %><div class="marquee-banner" aria-label="Thông báo quản trị"><span>⚙️ CHẾ ĐỘ QUẢN TRỊ HOẠT ĐỘNG · Bạn có toàn quyền quản lý thư mục, ảnh và chia sẻ · Hệ thống luôn sẵn sàng cho mọi thao tác</span></div><% } %>
+    <div class="intro-popups" aria-label="Thông tin giới thiệu">
+      <div class="intro-popup"><div class="intro-track"><span>📸 Lưu trữ ảnh riêng tư, đẹp mắt và luôn sẵn sàng khi bạn cần</span><span aria-hidden="true">📸 Lưu trữ ảnh riêng tư, đẹp mắt và luôn sẵn sàng khi bạn cần</span></div></div>
+      <div class="intro-popup"><div class="intro-track"><span>⚡ Chia sẻ thư mục, tải ảnh nhanh và quản lý khoảnh khắc chỉ trong vài cú nhấp</span><span aria-hidden="true">⚡ Chia sẻ thư mục, tải ảnh nhanh và quản lý khoảnh khắc chỉ trong vài cú nhấp</span></div></div>
+      <div class="intro-popup"><div class="intro-track"><span>🌿 Giao diện mượt mà, hiện đại và thư thái cho mọi lần mở thư viện</span><span aria-hidden="true">🌿 Giao diện mượt mà, hiện đại và thư thái cho mọi lần mở thư viện</span></div></div>
+    </div>
     <nav class="breadcrumbs"><a href="/drive">Thư viện</a><% if (currentFolder) { %><span>›</span><strong><%= currentFolder.name %></strong><% } %></nav>
 
     <section class="hero-row"><div><p class="eyebrow ink"><%= currentFolder && !isOwner ? `ĐƯỢC ${currentFolder.owner_name} CHIA SẺ` : (isAdmin ? 'TRUNG TÂM QUẢN TRỊ' : 'THƯ VIỆN CỦA TÔI') %></p><h1><%= currentFolder ? currentFolder.name : (isAdmin ? 'Tất cả dữ liệu' : 'Những khoảnh khắc') %><br><em><%= currentFolder ? 'của chúng ta.' : (isAdmin ? 'đều nằm trong tầm kiểm soát.' : 'đáng nhớ.') %></em></h1><p class="muted"><%= images.length %> ảnh trong thư mục này</p></div>
