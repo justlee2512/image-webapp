@@ -10,9 +10,10 @@
     <div class="user-menu"><span class="avatar"><%= user.username.charAt(0).toUpperCase() %></span><div><strong><%= user.username %></strong><small><%= user.email %></small></div><form method="post" action="/logout"><button class="link-button">Đăng xuất</button></form></div>
   </header>
   <main class="drive-shell">
+    <% if (isAdmin) { %><div class="marquee-banner" aria-label="Thông báo quản trị"><span>⚙️ CHẾ ĐỘ QUẢN TRỊ HOẠT ĐỘNG · Bạn có toàn quyền quản lý thư mục, ảnh và chia sẻ · Hệ thống luôn sẵn sàng cho mọi thao tác</span></div><% } %>
     <nav class="breadcrumbs"><a href="/drive">Thư viện</a><% if (currentFolder) { %><span>›</span><strong><%= currentFolder.name %></strong><% } %></nav>
 
-    <section class="hero-row"><div><p class="eyebrow ink"><%= currentFolder && !isOwner ? `ĐƯỢC ${currentFolder.owner_name} CHIA SẺ` : 'THƯ VIỆN CỦA TÔI' %></p><h1><%= currentFolder ? currentFolder.name : 'Những khoảnh khắc' %><br><em><%= currentFolder ? 'của chúng ta.' : 'đáng nhớ.' %></em></h1><p class="muted"><%= images.length %> ảnh trong thư mục này</p></div>
+    <section class="hero-row"><div><p class="eyebrow ink"><%= currentFolder && !isOwner ? `ĐƯỢC ${currentFolder.owner_name} CHIA SẺ` : (isAdmin ? 'TRUNG TÂM QUẢN TRỊ' : 'THƯ VIỆN CỦA TÔI') %></p><h1><%= currentFolder ? currentFolder.name : (isAdmin ? 'Tất cả dữ liệu' : 'Những khoảnh khắc') %><br><em><%= currentFolder ? 'của chúng ta.' : (isAdmin ? 'đều nằm trong tầm kiểm soát.' : 'đáng nhớ.') %></em></h1><p class="muted"><%= images.length %> ảnh trong thư mục này</p></div>
       <% if (isOwner) { %><form class="upload-form action-card" method="post" action="/images" enctype="multipart/form-data">
         <input type="hidden" name="folderId" value="<%= currentFolder ? currentFolder.id : '' %>">
         <input id="image-input" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp" data-max-size-mb="<%= maxFileSizeMb %>" multiple required hidden>
