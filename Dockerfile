@@ -3,21 +3,26 @@ FROM node:22-alpine AS dependencies
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --omit=dev && npm cache clean --force
+
+RUN npm install --omit=dev
+
 
 FROM node:22-alpine AS runtime
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S -g 10001 appgroup && \
+    adduser -S -D -H -u 10001 -G appgroup appuser
 
 WORKDIR /app
 
-COPY --from=dependencies --chown=appuser:appgroup /app/node_modules ./node_modules
-COPY --chown=appuser:appgroup . .
+COPY --from=dependencies --chown=10001:10001 \
+    /app/node_modules ./node_modules
+
+COPY --chown=10001:10001 . .
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
-USER appuser
+USER 10001:10001
 
 EXPOSE 3000
 
