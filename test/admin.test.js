@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isAdminUser, getAdminBootstrapConfig } = require('../src/admin');
+const { isAdminUser, getAdminBootstrapConfig, validateAccountInput, validatePasswordChangeInput } = require('../src/admin');
 
 test('detects admin users', () => {
   assert.equal(isAdminUser({ is_admin: true }), true);
@@ -14,6 +14,26 @@ test('treats configured admin identities as admins without a DB flag', () => {
   assert.equal(isAdminUser({ username: 'admin' }, env), true);
   assert.equal(isAdminUser({ email: 'admin@example.com' }, env), true);
   assert.equal(isAdminUser({ username: 'guest' }, env), false);
+});
+
+test('validates create-account input for admins and regular users', () => {
+  const regularResult = validateAccountInput({ username: 'guest', email: 'guest@example.com', password: 'Secret123!', passwordConfirm: 'Secret123!' }, { maxAccounts: 1, currentCount: 1, isAdmin: false });
+  assert.equal(regularResult.ok, false);
+  assert.match(regularResult.error, /đã đủ/);
+
+  const adminResult = validateAccountInput({ username: 'newuser', email: 'newuser@example.com', password: 'Secret123!', passwordConfirm: 'Secret123!' }, { maxAccounts: 1, currentCount: 1, isAdmin: true });
+  assert.equal(adminResult.ok, true);
+  assert.equal(adminResult.error, null);
+});
+
+test('validates password changes', () => {
+  const missingConfirm = validatePasswordChangeInput({ newPassword: 'NewPass123!', newPasswordConfirm: 'Other123!' });
+  assert.equal(missingConfirm.ok, false);
+  assert.match(missingConfirm.error, /không trùng/);
+
+  const valid = validatePasswordChangeInput({ newPassword: 'NewPass123!', newPasswordConfirm: 'NewPass123!' });
+  assert.equal(valid.ok, true);
+  assert.equal(valid.error, null);
 });
 
 test('uses environment values for the bootstrap admin', () => {

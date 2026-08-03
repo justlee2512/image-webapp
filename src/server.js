@@ -11,7 +11,7 @@ const archiver = require('archiver');
 const sharp = require('sharp');
 const pool = require('./db');
 const PgSessionStore = require('./pg-session-store');
-const { ensureAdminBootstrap, isAdminUser } = require('./admin');
+const { ensureAdminBootstrap, isAdminUser, validateAccountInput, validatePasswordChangeInput } = require('./admin');
 
 sharp.cache(false);
 sharp.concurrency(1);
@@ -168,6 +168,76 @@ app.post('/login', async (req, res) => {
 });
 
 app.post('/logout', (req, res) => req.session.destroy(() => res.redirect('/login')));
+
+app.get('/admin/users', authRequired, async (req, res) => {
+  if (!isAdminUser(req.session.user)) return res.status(403).send('Bạn không có quyền quản trị.');
+  try {
+    const result = await pool.query('SELECT id, username, email, created_at FROM image_drive.users ORDER BY username');
+    res.render('admin-users', { user: req.session.user, users: result.rows, error: req.session.error || null, success: req.session.success || null, maxAccounts });
+    delete req.session.error; delete req.session.success;
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Không thể tải danh sách tài khoản.');
+  }
+});
+
+app.post('/admin/users', authRequired, async (req, res) => {
+  if (!isAdminUser(req.session.user)) return res.status(403).send('Bạn không có quyền quản trị.');
+
+  const validation = validateAccountInput(req.body, { maxAccounts, currentCount: await pool.query('SELECT COUNT(*)::int AS total FROM image_drive.users').then((r) => r.rows[0].total), isAdmin: true });
+  if (!validation.ok) {
+    req.session.error = validation.error;
+    return res.redirect('/admin/users');
+  }
+
+  const username = String(req.body.username || '').trim();
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const password = String(req.body.password || '');
+  try {
+    const passwordHash = await bcrypt.hash(password, 12);
+    await pool.query('INSERT INTO image_drive.users (username, email, password_hash) VALUES ($1, $2, $3)', [username, email, passwordHash]);
+    req.session.success = `Đã tạo tài khoản ${username}.`;
+  } catch (error) {
+    req.session.error = error.code === '23505' ? 'Tên tài khoản hoặc email đã được sử dụng.' : 'Không thể tạo tài khoản.';
+  }
+  res.redirect('/admin/users');
+});
+
+app.post('/admin/users/:id/delete', authRequired, async (req, res) => {
+  if (!isAdminUser(req.session.user)) return res.status(403).send('Bạn không có quyền quản trị.');
+  if (String(req.params.id) === String(req.session.user.id)) {
+    req.session.error = 'Bạn không thể tự xóa tài khoản của chính mình.';
+    return res.redirect('/admin/users');
+  }
+  try {
+    const result = await pool.query('DELETE FROM image_drive.users WHERE id = $1 RETURNING id', [req.params.id]);
+    req.session[result.rowCount ? 'success' : 'error'] = result.rowCount ? 'Đã xóa tài khoản.' : 'Không tìm thấy tài khoản.';
+  } catch (error) {
+    console.error(error);
+    req.session.error = 'Không thể xóa tài khoản.';
+  }
+  res.redirect('/admin/users');
+});
+
+app.post('/admin/users/:id/reset-password', authRequired, async (req, res) => {
+  if (!isAdminUser(req.session.user)) return res.status(403).send('Bạn không có quyền quản trị.');
+  const newPassword = String(req.body.newPassword || '');
+  const newPasswordConfirm = String(req.body.newPasswordConfirm || '');
+  const validation = validatePasswordChangeInput({ newPassword, newPasswordConfirm });
+  if (!validation.ok) {
+    req.session.error = validation.error;
+    return res.redirect('/admin/users');
+  }
+  try {
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await pool.query('UPDATE image_drive.users SET password_hash = $1 WHERE id = $2', [passwordHash, req.params.id]);
+    req.session.success = 'Đã đổi mật khẩu cho tài khoản.';
+  } catch (error) {
+    console.error(error);
+    req.session.error = 'Không thể đổi mật khẩu.';
+  }
+  res.redirect('/admin/users');
+});
 
 app.get('/drive', authRequired, async (req, res) => {
   try {

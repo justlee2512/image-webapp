@@ -58,9 +58,48 @@ function withAdminFlag(user) {
   return user ? { ...user, is_admin: isAdminUser(user) } : user;
 }
 
+function validateAccountInput(values = {}, options = {}) {
+  const username = String(values.username || '').trim();
+  const email = String(values.email || '').trim().toLowerCase();
+  const password = String(values.password || '');
+  const passwordConfirm = String(values.passwordConfirm || '');
+
+  if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
+    return { ok: false, error: 'Tên tài khoản cần 3–30 ký tự, chỉ gồm chữ, số và dấu gạch dưới.' };
+  }
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    return { ok: false, error: 'Email không hợp lệ.' };
+  }
+  if (password.length < 8) {
+    return { ok: false, error: 'Mật khẩu cần ít nhất 8 ký tự.' };
+  }
+  if (password !== passwordConfirm) {
+    return { ok: false, error: 'Hai mật khẩu không trùng khớp.' };
+  }
+  const { maxAccounts = Number.MAX_SAFE_INTEGER, currentCount = 0, isAdmin = false } = options;
+  if (!isAdmin && currentCount >= maxAccounts) {
+    return { ok: false, error: `Hệ thống đã đủ ${maxAccounts} tài khoản.` };
+  }
+  return { ok: true, error: null };
+}
+
+function validatePasswordChangeInput(values = {}) {
+  const newPassword = String(values.newPassword || '');
+  const newPasswordConfirm = String(values.newPasswordConfirm || '');
+  if (newPassword.length < 8) {
+    return { ok: false, error: 'Mật khẩu mới cần ít nhất 8 ký tự.' };
+  }
+  if (newPassword !== newPasswordConfirm) {
+    return { ok: false, error: 'Mật khẩu mới không trùng khớp.' };
+  }
+  return { ok: true, error: null };
+}
+
 module.exports = {
   isAdminUser,
   getAdminBootstrapConfig,
   ensureAdminBootstrap,
-  withAdminFlag
+  withAdminFlag,
+  validateAccountInput,
+  validatePasswordChangeInput
 };

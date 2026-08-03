@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Quản trị tài khoản · Richard Le Drive</title>
+  <link rel="stylesheet" href="/styles.css?v=13">
+</head>
+<body class="auth-page">
+  <main class="auth-shell admin-shell">
+    <section class="auth-panel">
+      <div class="auth-card admin-card">
+        <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
+        <p class="eyebrow ink">QUẢN TRỊ</p>
+        <h2>Quản lý tài khoản</h2>
+        <p class="muted">Admin có thể tạo tài khoản mới, xóa người dùng và đổi mật khẩu.</p>
+        <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+        <% if (success) { %><div class="alert success"><%= success %></div><% } %>
+
+        <form class="admin-form" method="post" action="/admin/users">
+          <h3>Tạo tài khoản mới</h3>
+          <label>Tên tài khoản<input name="username" required placeholder="newuser"></label>
+          <label>Email<input type="email" name="email" required placeholder="newuser@example.com"></label>
+          <label>Mật khẩu<input type="password" name="password" required placeholder="Tối thiểu 8 ký tự"></label>
+          <label>Nhập lại mật khẩu<input type="password" name="passwordConfirm" required placeholder="Nhập lại mật khẩu"></label>
+          <button class="button primary wide" type="submit">Tạo tài khoản</button>
+        </form>
+
+        <div class="user-list">
+          <h3>Danh sách người dùng</h3>
+          <% users.forEach((account) => { %>
+            <div class="user-row">
+              <div>
+                <strong><%= account.username %></strong>
+                <small><%= account.email %></small>
+              </div>
+              <div class="user-actions">
+                <form method="post" action="/admin/users/<%= account.id %>/reset-password">
+                  <input type="password" name="newPassword" placeholder="Mật khẩu mới" required>
+                  <input type="password" name="newPasswordConfirm" placeholder="Nhập lại" required>
+                  <button class="button outline" type="submit">Đổi mật khẩu</button>
+                </form>
+                <% if (Number(account.id) !== Number(user.id)) { %>
+                  <form method="post" action="/admin/users/<%= account.id %>/delete" onsubmit="return confirm('Xóa tài khoản này?')">
+                    <button class="button danger" type="submit">Xóa</button>
+                  </form>
+                <% } %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+
+        <p class="switch"><a href="/drive">Quay về thư viện</a></p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
