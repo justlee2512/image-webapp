@@ -86,4 +86,6 @@ livenessProbe:
 
 `SESSION_SECRET` phải cố định, giống nhau trên tất cả pod và dài ít nhất 32 ký tự. `COOKIE_SECURE=true` chỉ dùng khi người dùng truy cập qua HTTPS; nếu Ingress chỉ phục vụ HTTP thì đặt `false`. Với Ingress terminate TLS, giữ `TRUST_PROXY=true` để Express nhận đúng giao thức gốc.
 
+Session mặc định tự hết hạn sau 15 phút không có request sử dụng ứng dụng. Mỗi request hợp lệ sẽ gia hạn lại thời gian này. Có thể thay đổi bằng `SESSION_IDLE_TIMEOUT_MS` (đơn vị millisecond), và mọi pod nên dùng cùng một giá trị.
+
 Tổng số connection tối đa xấp xỉ `replicas × DB_POOL_MAX`. Ví dụ 4 pod và `DB_POOL_MAX=5` có thể dùng tối đa 20 connection; cần giữ con số này thấp hơn `max_connections` của PostgreSQL sau khi chừa connection cho migration, giám sát và quản trị.

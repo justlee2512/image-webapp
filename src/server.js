@@ -19,7 +19,7 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const maxAccounts = Number(process.env.MAX_ACCOUNTS || 5);
 const maxFileSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 30);
-const sessionTtlMs = Number(process.env.SESSION_TTL_MS || 1000 * 60 * 60 * 24);
+const sessionTtlMs = Number(process.env.SESSION_IDLE_TIMEOUT_MS || process.env.SESSION_TTL_MS || 1000 * 60 * 15);
 
 if (process.env.NODE_ENV === 'production' && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
   throw new Error('SESSION_SECRET phải được cấu hình giống nhau trên tất cả pod và dài ít nhất 32 ký tự.');
@@ -60,6 +60,7 @@ app.use(session({
   store: sessionStore,
   resave: false,
   saveUninitialized: false,
+  rolling: true,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
