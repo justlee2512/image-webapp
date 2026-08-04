@@ -1,25 +1,12 @@
 (() => {
   'use strict';
 
+  const ui = window.ImageDriveUI || {};
+  const showToast = ui.showToast || ((message) => window.alert(message));
+  const queueToast = ui.queueToast || (() => {});
+  const parseResponse = ui.parseResponse || (async (response) => response.json());
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
   const currentFolderId = document.body.dataset.folderId || '';
-  const toastStack = document.querySelector('#toast-stack');
-
-  function showToast(message, type = 'error') {
-    if (!message) return;
-    if (!toastStack) {
-      window.alert(message);
-      return;
-    }
-    const toast = document.createElement('div');
-    toast.className = `toast ${type} is-visible`;
-    toast.textContent = message;
-    toastStack.appendChild(toast);
-    window.setTimeout(() => {
-      toast.classList.add('is-hiding');
-      window.setTimeout(() => toast.remove(), 240);
-    }, 3200);
-  }
 
   document.querySelectorAll('.alert').forEach((alert) => {
     if (alert.hasAttribute('data-live-alert')) return;
@@ -45,10 +32,6 @@
     });
   });
 
-  async function parseJson(response) {
-    return response.json().catch(() => ({ ok: false, message: 'Phản hồi từ máy chủ không hợp lệ.' }));
-  }
-
   async function postUrlEncoded(url, values = {}) {
     const body = new URLSearchParams();
     body.set('_csrf', csrfToken);
@@ -67,7 +50,7 @@
       credentials: 'same-origin',
       body
     });
-    const payload = await parseJson(response);
+    const payload = await parseResponse(response);
     if (!response.ok || !payload.ok) throw new Error(payload.message || 'Không thể hoàn thành thao tác.');
     return payload;
   }
@@ -97,10 +80,10 @@
           credentials: 'same-origin',
           body: formData
         });
-        const payload = await parseJson(response);
+        const payload = await parseResponse(response);
         if (!response.ok || !payload.ok) throw new Error(payload.message || 'Không thể hoàn thành thao tác.');
-        showToast(payload.message || 'Thao tác thành công.', 'success');
-        window.setTimeout(() => window.location.assign(form.dataset.successRedirect || window.location.href), 250);
+        queueToast(payload.message || 'Thao tác thành công.', 'success');
+        window.location.assign(payload.redirect || form.dataset.successRedirect || window.location.href);
       } catch (error) {
         showToast(error.message || 'Không thể hoàn thành thao tác.', 'error');
         if (submitButton) {
@@ -236,6 +219,121 @@
   checkboxes.forEach((checkbox) => checkbox.addEventListener('change', updateBatchButtons));
   updateBatchButtons();
 
+  function filenameFromResponse(response, fallback) {
+    const disposition = response.headers.get('content-disposition') || '';
+    const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+    if (encoded) {
+      try { return decodeURIComponent(encoded); } catch (_error) {}
+    }
+    const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+    return plain || fallback;
+  }
+
+  function saveBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.hidden = true;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function downloadWithToast(url, options = {}, fallbackName = 'download') {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      ...options,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-Token': csrfToken,
+        Accept: 'application/zip, image/*, application/json',
+        ...(options.headers || {})
+      }
+    });
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok || contentType.includes('application/json')) {
+      const payload = await parseResponse(response);
+      throw new Error(payload.message || 'Không thể tải tệp.');
+    }
+    const blob = await response.blob();
+    saveBlob(blob, filenameFromResponse(response, fallbackName));
+  }
+
+  const batchForm = document.querySelector('#batch-form');
+  batchForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submitter = event.submitter;
+    if (!submitter) return;
+
+    const action = submitter.formAction || batchForm.action;
+    const isDownload = action.endsWith('/images/download-batch');
+    const originalText = submitter.textContent;
+    submitter.disabled = true;
+    submitter.textContent = isDownload ? 'Đang tạo ZIP…' : 'Đang xử lý…';
+
+    try {
+      const formData = new FormData(batchForm);
+      if (!formData.has('_csrf')) formData.set('_csrf', csrfToken);
+
+      if (isDownload) {
+        await downloadWithToast(action, { method: 'POST', body: formData }, `richard-le-images-${Date.now()}.zip`);
+        showToast('Đã bắt đầu tải file ZIP.', 'success');
+        return;
+      }
+
+      const response = await fetch(action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-Token': csrfToken,
+          Accept: 'application/json'
+        },
+        credentials: 'same-origin',
+        body: formData
+      });
+      const payload = await parseResponse(response);
+      if (!response.ok || !payload.ok) throw new Error(payload.message || 'Không thể hoàn thành thao tác.');
+      queueToast(payload.message || 'Thao tác thành công.', 'success');
+      window.location.assign(payload.redirect || window.location.href);
+    } catch (error) {
+      showToast(error.message || 'Không thể hoàn thành thao tác.', 'error');
+    } finally {
+      if (document.contains(submitter)) {
+        submitter.disabled = false;
+        submitter.textContent = originalText;
+        updateBatchButtons();
+      }
+    }
+  });
+
+  document.querySelectorAll('a.download-button, #lightbox-download').forEach((link) => {
+    link.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const href = link.href;
+      if (!href || href.endsWith('#')) return;
+      link.classList.add('is-busy');
+      try {
+        const imageName = link.closest('.photo-card')?.querySelector('.photo-meta strong')?.textContent?.trim() || 'image';
+        await downloadWithToast(href, { method: 'GET' }, imageName);
+        showToast('Đã bắt đầu tải ảnh.', 'success');
+      } catch (error) {
+        showToast(error.message || 'Không thể tải ảnh.', 'error');
+      } finally {
+        link.classList.remove('is-busy');
+      }
+    });
+  });
+
+  document.querySelectorAll('.photo-card img').forEach((image) => {
+    image.addEventListener('error', () => {
+      if (image.dataset.errorShown === 'true') return;
+      image.dataset.errorShown = 'true';
+      showToast('Không thể tải một ảnh. Có thể bạn không còn quyền truy cập.', 'error');
+    });
+  });
+
   batchDelete?.addEventListener('click', (event) => {
     const count = selectedIds().length;
     if (!window.confirm(`Bạn chắc chắn muốn xóa ${count} ảnh đã chọn? Hành động này không thể hoàn tác.`)) event.preventDefault();
@@ -275,8 +373,8 @@
           targetFolderId: folder.dataset.folderId,
           currentFolderId
         });
-        showToast(payload.message || 'Đã di chuyển ảnh.', 'success');
-        window.setTimeout(() => window.location.reload(), 250);
+        queueToast(payload.message || 'Đã di chuyển ảnh.', 'success');
+        window.location.reload();
       } catch (error) {
         showToast(error.message || 'Không thể di chuyển ảnh.', 'error');
       }

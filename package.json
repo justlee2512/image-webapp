@@ -1,6 +1,6 @@
 {
   "name": "image-drive",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "private": true,
   "description": "Secure and responsive image storage app backed by PostgreSQL",
   "main": "src/server.js",
@@ -11,7 +11,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
-    "check": "node --check src/server.js && node --check src/security.js && node --check public/app.js"
+    "check": "node --check src/server.js && node --check src/security.js && node --check public/toast.js && node --check public/auth.js && node --check public/app.js"
   },
   "dependencies": {
     "archiver": "^7.0.1",

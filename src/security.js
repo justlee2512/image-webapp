@@ -111,7 +111,10 @@ function createRateLimiter({ windowMs, limit, keyPrefix }) {
     if (bucket.count > limit) {
       const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
       res.set('Retry-After', String(retryAfter));
-      return res.status(429).send('Bạn thao tác quá nhanh. Hãy thử lại sau ít phút.');
+      const message = 'Bạn thao tác quá nhanh. Hãy thử lại sau ít phút.';
+      const wantsJson = req.get('x-requested-with') === 'XMLHttpRequest' || req.accepts(['html', 'json']) === 'json';
+      if (wantsJson) return res.status(429).json({ ok: false, message });
+      return res.status(429).send(message);
     }
     next();
   };

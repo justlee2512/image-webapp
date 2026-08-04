@@ -1,6 +1,12 @@
 (() => {
   'use strict';
 
+  const ui = window.ImageDriveUI || {};
+  const showToast = ui.showToast || ((message) => window.alert(message));
+  const queueToast = ui.queueToast || (() => {});
+  const parseResponse = ui.parseResponse || (async (response) => response.json());
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
   document.querySelectorAll('[data-password-target]').forEach((button) => {
     button.addEventListener('click', () => {
       const input = document.getElementById(button.dataset.passwordTarget);
@@ -32,20 +38,59 @@
   password?.addEventListener('input', updateMatch);
   confirmPassword?.addEventListener('input', updateMatch);
 
-  document.querySelectorAll('form[data-confirm]').forEach((form) => {
-    form.addEventListener('submit', (event) => {
-      if (!window.confirm(form.dataset.confirm || 'Bạn có chắc muốn thực hiện thao tác này?')) event.preventDefault();
-    });
-  });
+  document.querySelectorAll('form[data-ajax-form]').forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) return;
 
-  document.querySelectorAll('form[data-busy-form]').forEach((form) => {
-    form.addEventListener('submit', (event) => {
-      if (!form.checkValidity()) return;
-      const button = event.submitter || form.querySelector('button[type="submit"]');
-      if (!button) return;
-      button.disabled = true;
-      button.dataset.originalText = button.textContent;
-      button.textContent = 'Đang xử lý…';
+      const submitter = event.submitter;
+      const button = submitter || form.querySelector('button[type="submit"]');
+      const originalText = button?.textContent || '';
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Đang xử lý…';
+      }
+
+      try {
+        const action = submitter?.getAttribute('formaction') || form.action;
+        const method = (submitter?.getAttribute('formmethod') || form.method || 'POST').toUpperCase();
+        const formData = new FormData(form);
+        if (!formData.has('_csrf')) formData.set('_csrf', csrfToken);
+
+        const response = await fetch(action, {
+          method,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-Token': csrfToken,
+            Accept: 'application/json'
+          },
+          credentials: 'same-origin',
+          body: formData
+        });
+        const payload = await parseResponse(response);
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.message || 'Không thể hoàn thành thao tác.');
+        }
+
+        const redirect = payload.redirect || form.dataset.successRedirect;
+        const shouldReload = form.dataset.successReload === 'true';
+        if (redirect || shouldReload) {
+          queueToast(payload.message || 'Thao tác thành công.', 'success');
+          window.location.assign(redirect || window.location.href);
+          return;
+        }
+
+        showToast(payload.message || 'Thao tác thành công.', 'success');
+        form.reset();
+      } catch (error) {
+        showToast(error.message || 'Không thể hoàn thành thao tác.', 'error');
+      } finally {
+        if (button && document.contains(button)) {
+          button.disabled = false;
+          button.textContent = originalText;
+        }
+      }
     });
   });
 })();

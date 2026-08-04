@@ -4,9 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="asset-version" content="<%= assetVersion %>">
   <meta name="csrf-token" content="<%= csrfToken %>">
   <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Richard Le Drive</title>
   <link rel="stylesheet" href="/assets/styles.css?v=<%= assetVersion %>">
+  <script src="/assets/toast.js?v=<%= assetVersion %>" defer></script>
   <script src="/assets/app.js?v=<%= assetVersion %>" defer></script>
 </head>
 <body class="drive-page" data-folder-id="<%= currentFolder ? currentFolder.id : '' %>" data-max-file-size-mb="<%= maxFileSizeMb %>">
@@ -65,8 +70,8 @@
       <% } %>
     </section>
 
-    <% if (error) { %><div class="alert error"><%= error %></div><% } %>
-    <% if (success) { %><div class="alert success"><%= success %></div><% } %>
+    <% if (error) { %><div hidden data-toast-message="<%= error %>" data-toast-type="error"></div><% } %>
+    <% if (success) { %><div hidden data-toast-message="<%= success %>" data-toast-type="success"></div><% } %>
     <div class="alert alert-hidden" data-live-alert role="status"></div>
 
     <% if (!currentFolder) { %>

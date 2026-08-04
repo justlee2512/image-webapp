@@ -97,3 +97,10 @@ npm test
 Rate-limit hiện dùng bộ nhớ trong từng pod, phù hợp cho ứng dụng nhỏ. Khi mở rộng nhiều người dùng hoặc public Internet, nên đặt rate-limit tập trung tại Cloudflare, NGINX Ingress, API Gateway hoặc Redis.
 
 Ảnh vẫn lưu trong PostgreSQL `BYTEA` để tương thích dữ liệu hiện tại. Khi dung lượng tăng lên hàng chục/hàng trăm GB, nên chuyển blob sang S3/MinIO và chỉ giữ metadata trong PostgreSQL.
+
+## Toast lỗi và làm mới frontend
+
+- Các thao tác giao diện gửi AJAX; lỗi, `401`, `403` và lỗi hệ thống sẽ hiện toast đỏ rồi tự mờ, không mở trang lỗi riêng.
+- HTML, CSS và JavaScript mặc định có `Cache-Control: no-store`; ảnh/thumbnail vẫn được cache dài hạn.
+- Đặt `ASSET_VERSION` bằng Git SHA hoặc image tag trong CI/CD để xác định đúng frontend đang chạy.
+- Có thể bật lại cache frontend bằng `DISABLE_FRONTEND_CACHE=false`, nhưng không khuyến nghị khi đang triển khai thường xuyên.

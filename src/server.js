@@ -9,6 +9,7 @@ const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const archiver = require('archiver');
 const sharp = require('sharp');
+const { version: packageVersion } = require('../package.json');
 
 const { pool, envNumber } = require('./db');
 const PgSessionStore = require('./pg-session-store');
@@ -43,6 +44,7 @@ const thumbnailHeight = envNumber('THUMBNAIL_HEIGHT', 390, 120, 1600);
 const thumbnailQuality = envNumber('THUMBNAIL_QUALITY', 76, 40, 95);
 const maxBatchDownloadMb = envNumber('MAX_BATCH_DOWNLOAD_MB', 500, 10, 5000);
 const isProduction = process.env.NODE_ENV === 'production';
+const disableFrontendCache = process.env.DISABLE_FRONTEND_CACHE !== 'false';
 
 if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
   throw new Error('SESSION_SECRET must be configured and contain at least 32 characters in production.');
@@ -64,7 +66,10 @@ app.disable('x-powered-by');
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.set('query parser', 'simple');
-app.locals.assetVersion = process.env.ASSET_VERSION || '2.0.0';
+app.locals.assetVersion = process.env.ASSET_VERSION
+  || process.env.GIT_SHA
+  || process.env.IMAGE_TAG
+  || packageVersion;
 if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);
 
 app.use(requestContext);
@@ -92,12 +97,44 @@ app.use(helmet({
 }));
 app.use(express.urlencoded({ extended: false, limit: '64kb', parameterLimit: 2500 }));
 app.use(express.json({ limit: '64kb' }));
+// Frontend files are deliberately revalidated on every page load. Image blobs keep
+// their own long-lived immutable cache headers further below.
 app.use('/assets', express.static(path.join(__dirname, '..', 'public'), {
-  etag: true,
-  maxAge: isProduction ? '7d' : 0,
-  immutable: false,
-  fallthrough: false
+  etag: !disableFrontendCache,
+  maxAge: disableFrontendCache ? 0 : '1y',
+  immutable: !disableFrontendCache,
+  fallthrough: false,
+  setHeaders: (res) => {
+    res.set('X-Asset-Version', app.locals.assetVersion);
+    if (disableFrontendCache) {
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        Pragma: 'no-cache',
+        Expires: '0',
+        'Surrogate-Control': 'no-store'
+      });
+    }
+  }
 }));
+
+// Never cache HTML/navigation responses. This prevents an old EJS page from
+// continuing to reference a previous CSS/JavaScript bundle after deployment.
+app.use((req, res, next) => {
+  const isFrontendPage = req.method === 'GET'
+    && !req.path.startsWith('/images/')
+    && req.path !== '/live'
+    && req.path !== '/health';
+  if (isFrontendPage) {
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+      'Surrogate-Control': 'no-store',
+      'X-Frontend-Version': app.locals.assetVersion
+    });
+  }
+  next();
+});
 
 const sessionStore = new PgSessionStore({
   pool,
@@ -181,19 +218,45 @@ function driveUrl(folderId) {
     : '/drive';
 }
 
+function safeReturnPath(req, fallback) {
+  const referer = req.get('referer');
+  if (!referer) return fallback;
+  try {
+    const parsed = new URL(referer);
+    const currentOrigin = `${req.protocol}://${req.get('host')}`;
+    const candidate = `${parsed.pathname}${parsed.search}`;
+    if (parsed.origin !== currentOrigin || candidate === req.originalUrl) return fallback;
+    if (candidate.startsWith('/assets/') || candidate.startsWith('/images/')) return fallback;
+    return candidate;
+  } catch {
+    return fallback;
+  }
+}
+
+function redirectWithToast(req, res, message, fallback) {
+  try {
+    setFlash(req, 'error', message);
+  } catch {
+    return res.status(500).send(message);
+  }
+  return res.redirect(303, safeReturnPath(req, fallback));
+}
+
 function wantsJson(req) {
   return req.get('x-requested-with') === 'XMLHttpRequest' || req.accepts(['html', 'json']) === 'json';
 }
 
 function sendActionResponse(req, res, ok, message, redirectTo = '/drive', extra = {}) {
-  if (wantsJson(req)) return res.status(ok ? 200 : 400).json({ ok, message, ...extra });
+  if (wantsJson(req)) return res.status(ok ? 200 : 400).json({ ok, message, redirect: redirectTo, ...extra });
   setFlash(req, ok ? 'success' : 'error', message);
   return res.redirect(redirectTo);
 }
 
 function authRequired(req, res, next) {
   if (!req.session.user) {
-    if (wantsJson(req)) return res.status(401).json({ ok: false, message: 'Phiên đăng nhập đã hết hạn.' });
+    const message = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+    if (wantsJson(req)) return res.status(401).json({ ok: false, message });
+    setFlash(req, 'error', message);
     return res.redirect('/login');
   }
   res.locals.user = req.session.user;
@@ -201,8 +264,10 @@ function authRequired(req, res, next) {
 }
 
 function adminRequired(req, res, next) {
-  if (!isAdminUser(req.session.user)) return res.status(403).send('Bạn không có quyền quản trị.');
-  next();
+  if (isAdminUser(req.session.user)) return next();
+  if (wantsJson(req)) return res.status(403).json({ ok: false, message: 'Bạn không có quyền quản trị.' });
+  setFlash(req, 'error', 'Bạn không có quyền quản trị.');
+  return res.redirect('/drive');
 }
 
 function renderAuth(res, view, values = {}) {
@@ -255,7 +320,12 @@ function imageAccessWhere() {
 
 app.get('/', (req, res) => res.redirect(req.session.user ? '/drive' : '/login'));
 
-app.get('/register', (req, res) => req.session.user ? res.redirect('/drive') : renderAuth(res, 'register'));
+app.get('/register', (req, res) => {
+  if (req.session.user) return res.redirect('/drive');
+  const error = req.session.error || null;
+  clearFlash(req);
+  return renderAuth(res, 'register', { error });
+});
 app.post('/register', registerLimiter, async (req, res) => {
   const form = {
     username: String(req.body.username || '').trim(),
@@ -273,6 +343,7 @@ app.post('/register', registerLimiter, async (req, res) => {
     });
     if (!validation.ok) {
       await client.query('ROLLBACK');
+      if (wantsJson(req)) return res.status(400).json({ ok: false, message: validation.error });
       return renderAuth(res, 'register', { status: 400, error: validation.error, form });
     }
     const passwordHash = await bcrypt.hash(String(req.body.password), 12);
@@ -284,20 +355,28 @@ app.post('/register', registerLimiter, async (req, res) => {
     );
     await client.query('COMMIT');
     await establishSession(req, result.rows[0]);
+    if (wantsJson(req)) return res.json({ ok: true, message: 'Tạo tài khoản thành công.', redirect: '/drive' });
     res.redirect('/drive');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     if (error.code === '23505') {
+      if (wantsJson(req)) return res.status(409).json({ ok: false, message: 'Tên tài khoản hoặc email đã được sử dụng.' });
       return renderAuth(res, 'register', { status: 409, error: 'Tên tài khoản hoặc email đã được sử dụng.', form });
     }
     logError(error, req, 'register');
+    if (wantsJson(req)) return res.status(500).json({ ok: false, message: 'Không thể tạo tài khoản lúc này.' });
     return renderAuth(res, 'register', { status: 500, error: 'Không thể tạo tài khoản lúc này.', form });
   } finally {
     client.release();
   }
 });
 
-app.get('/login', (req, res) => req.session.user ? res.redirect('/drive') : renderAuth(res, 'login'));
+app.get('/login', (req, res) => {
+  if (req.session.user) return res.redirect('/drive');
+  const error = req.session.error || null;
+  clearFlash(req);
+  return renderAuth(res, 'login', { error });
+});
 app.post('/login', loginLimiter, async (req, res) => {
   const identity = String(req.body.identity || '').trim();
   const password = String(req.body.password || '');
@@ -312,12 +391,15 @@ app.post('/login', loginLimiter, async (req, res) => {
     const user = result.rows[0];
     const valid = user ? await bcrypt.compare(password, user.password_hash) : await bcrypt.compare(password, '$2b$12$Jq7lHfXlL7V5PzPX7Wd0XuB2W6JsT3EboVdVkVb4VfMZLJTLJ4TAi');
     if (!user || !valid) {
+      if (wantsJson(req)) return res.status(401).json({ ok: false, message: 'Thông tin đăng nhập không đúng.' });
       return renderAuth(res, 'login', { status: 401, error: 'Thông tin đăng nhập không đúng.', form: { identity } });
     }
     await establishSession(req, user);
+    if (wantsJson(req)) return res.json({ ok: true, message: 'Đăng nhập thành công.', redirect: '/drive' });
     res.redirect('/drive');
   } catch (error) {
     logError(error, req, 'login');
+    if (wantsJson(req)) return res.status(500).json({ ok: false, message: 'Không thể đăng nhập lúc này.' });
     renderAuth(res, 'login', { status: 500, error: 'Không thể đăng nhập lúc này.', form: { identity } });
   }
 });
@@ -360,8 +442,7 @@ app.post('/admin/users', authRequired, adminRequired, async (req, res) => {
       isAdmin: true
     });
     if (!validation.ok) {
-      setFlash(req, 'error', validation.error);
-      return res.redirect('/admin/users');
+      return sendActionResponse(req, res, false, validation.error, '/admin/users');
     }
     const passwordHash = await bcrypt.hash(String(req.body.password), 12);
     await pool.query(
@@ -369,49 +450,42 @@ app.post('/admin/users', authRequired, adminRequired, async (req, res) => {
        VALUES ($1, $2, $3, FALSE)`,
       [String(req.body.username).trim(), normalizeIdentity(req.body.email), passwordHash]
     );
-    setFlash(req, 'success', `Đã tạo tài khoản ${String(req.body.username).trim()}.`);
+    return sendActionResponse(req, res, true, `Đã tạo tài khoản ${String(req.body.username).trim()}.`, '/admin/users');
   } catch (error) {
     logError(error, req, 'admin-user-create');
-    setFlash(req, 'error', error.code === '23505' ? 'Tên tài khoản hoặc email đã được sử dụng.' : 'Không thể tạo tài khoản.');
+    return sendActionResponse(req, res, false, error.code === '23505' ? 'Tên tài khoản hoặc email đã được sử dụng.' : 'Không thể tạo tài khoản.', '/admin/users');
   }
-  res.redirect('/admin/users');
 });
 
 app.post('/admin/users/:id/delete', authRequired, adminRequired, async (req, res) => {
   if (String(req.params.id) === String(req.session.user.id)) {
-    setFlash(req, 'error', 'Bạn không thể tự xóa tài khoản của chính mình.');
-    return res.redirect('/admin/users');
+    return sendActionResponse(req, res, false, 'Bạn không thể tự xóa tài khoản của chính mình.', '/admin/users');
   }
   try {
     await pool.query("DELETE FROM image_drive.sessions WHERE sess #>> '{user,id}' = $1", [String(req.params.id)]);
     const result = await pool.query('DELETE FROM image_drive.users WHERE id = $1 RETURNING id', [req.params.id]);
-    setFlash(req, result.rowCount ? 'success' : 'error', result.rowCount ? 'Đã xóa tài khoản.' : 'Không tìm thấy tài khoản.');
+    return sendActionResponse(req, res, Boolean(result.rowCount), result.rowCount ? 'Đã xóa tài khoản.' : 'Không tìm thấy tài khoản.', '/admin/users');
   } catch (error) {
     logError(error, req, 'admin-user-delete');
-    setFlash(req, 'error', 'Không thể xóa tài khoản.');
+    return sendActionResponse(req, res, false, 'Không thể xóa tài khoản.', '/admin/users');
   }
-  res.redirect('/admin/users');
 });
 
 app.post('/admin/users/:id/reset-password', authRequired, adminRequired, async (req, res) => {
   const validation = validatePasswordChangeInput(req.body);
   if (!validation.ok) {
-    setFlash(req, 'error', validation.error);
-    return res.redirect('/admin/users');
+    return sendActionResponse(req, res, false, validation.error, '/admin/users');
   }
   try {
     const passwordHash = await bcrypt.hash(String(req.body.newPassword), 12);
     const result = await pool.query('UPDATE image_drive.users SET password_hash = $1 WHERE id = $2 RETURNING id', [passwordHash, req.params.id]);
-    if (!result.rowCount) setFlash(req, 'error', 'Không tìm thấy tài khoản.');
-    else {
-      await pool.query("DELETE FROM image_drive.sessions WHERE sess #>> '{user,id}' = $1", [String(req.params.id)]);
-      setFlash(req, 'success', 'Đã đổi mật khẩu và đăng xuất các phiên cũ của tài khoản.');
-    }
+    if (!result.rowCount) return sendActionResponse(req, res, false, 'Không tìm thấy tài khoản.', '/admin/users');
+    await pool.query("DELETE FROM image_drive.sessions WHERE sess #>> '{user,id}' = $1", [String(req.params.id)]);
+    return sendActionResponse(req, res, true, 'Đã đổi mật khẩu và đăng xuất các phiên cũ của tài khoản.', '/admin/users');
   } catch (error) {
     logError(error, req, 'admin-password-reset');
-    setFlash(req, 'error', 'Không thể đổi mật khẩu.');
+    return sendActionResponse(req, res, false, 'Không thể đổi mật khẩu.', '/admin/users');
   }
-  res.redirect('/admin/users');
 });
 
 app.get('/drive', authRequired, async (req, res) => {
@@ -419,7 +493,11 @@ app.get('/drive', authRequired, async (req, res) => {
     const admin = isAdminUser(req.session.user);
     const folderId = req.query.folder ? String(req.query.folder) : null;
     const access = await getFolderAccess(folderId, req.session.user.id, admin);
-    if (!access) return res.status(404).send('Folder không tồn tại hoặc chưa được chia sẻ cho bạn.');
+    if (!access) {
+      if (wantsJson(req)) return res.status(403).json({ ok: false, message: 'Folder không tồn tại hoặc bạn không được phép truy cập.' });
+      setFlash(req, 'error', 'Folder không tồn tại hoặc bạn không được phép truy cập.');
+      return res.redirect('/drive');
+    }
 
     const imagesPromise = folderId
       ? pool.query(
@@ -705,7 +783,10 @@ app.get('/images/:id/thumbnail', authRequired, async (req, res) => {
 });
 
 async function sendImage(req, res, disposition) {
-  if (!UUID_RE.test(req.params.id)) return res.sendStatus(404);
+  if (!UUID_RE.test(req.params.id)) {
+    if (wantsJson(req)) return res.status(404).json({ ok: false, message: 'Ảnh không hợp lệ.' });
+    return res.sendStatus(404);
+  }
   let release;
   try {
     release = await downloadQueue.acquire();
@@ -716,7 +797,10 @@ async function sendImage(req, res, disposition) {
       [req.params.id, req.session.user.id, admin]
     );
     const image = result.rows[0];
-    if (!image) return res.sendStatus(404);
+    if (!image) {
+      if (wantsJson(req)) return res.status(404).json({ ok: false, message: 'Không tìm thấy ảnh hoặc bạn không có quyền tải.' });
+      return res.sendStatus(404);
+    }
     const hash = image.content_sha256 || crypto.createHash('sha256').update(image.image_data).digest('hex');
     if (!image.content_sha256) pool.query('UPDATE image_drive.images SET content_sha256 = $1 WHERE id = $2 AND content_sha256 IS NULL', [hash, req.params.id]).catch(() => {});
     const etag = `"sha256-${hash}"`;
@@ -732,7 +816,10 @@ async function sendImage(req, res, disposition) {
     res.send(image.image_data);
   } catch (error) {
     logError(error, req, `image-${disposition}`);
-    if (!res.headersSent) res.status(error.status || 500).send('Không thể tải ảnh.');
+    if (!res.headersSent) {
+      if (wantsJson(req)) return res.status(error.status || 500).json({ ok: false, message: 'Không thể tải ảnh.' });
+      res.status(error.status || 500).send('Không thể tải ảnh.');
+    }
   } finally {
     if (release) release();
   }
@@ -743,7 +830,10 @@ app.get('/images/:id/download', authRequired, (req, res) => sendImage(req, res, 
 
 app.post('/images/download-batch', authRequired, async (req, res) => {
   const ids = normalizeUuidList(req.body.imageIds, 100);
-  if (!ids.length) return res.status(400).send('Vui lòng chọn từ 1 đến 100 ảnh.');
+  if (!ids.length) {
+    if (wantsJson(req)) return res.status(400).json({ ok: false, message: 'Vui lòng chọn từ 1 đến 100 ảnh.' });
+    return res.status(400).send('Vui lòng chọn từ 1 đến 100 ảnh.');
+  }
   let release;
   try {
     release = await downloadQueue.acquire();
@@ -757,10 +847,15 @@ app.post('/images/download-batch', authRequired, async (req, res) => {
         ORDER BY i.created_at`,
       [ids, req.session.user.id, admin]
     );
-    if (!result.rowCount) return res.status(404).send('Không tìm thấy ảnh có quyền tải.');
+    if (!result.rowCount) {
+      if (wantsJson(req)) return res.status(404).json({ ok: false, message: 'Không tìm thấy ảnh hoặc bạn không có quyền tải.' });
+      return res.status(404).send('Không tìm thấy ảnh có quyền tải.');
+    }
     const totalBytes = result.rows.reduce((sum, image) => sum + Number(image.size_bytes || 0), 0);
     if (totalBytes > maxBatchDownloadMb * 1024 * 1024) {
-      return res.status(413).send(`Tổng dung lượng vượt quá ${maxBatchDownloadMb} MB. Hãy chọn ít ảnh hơn.`);
+      const message = `Tổng dung lượng vượt quá ${maxBatchDownloadMb} MB. Hãy chọn ít ảnh hơn.`;
+      if (wantsJson(req)) return res.status(413).json({ ok: false, message });
+      return res.status(413).send(message);
     }
 
     res.set('Cache-Control', 'private, no-store');
@@ -796,7 +891,10 @@ app.post('/images/download-batch', authRequired, async (req, res) => {
     await archive.finalize();
   } catch (error) {
     logError(error, req, 'download-batch');
-    if (!res.headersSent) res.status(error.status || 500).send('Không thể tạo file ZIP.');
+    if (!res.headersSent) {
+      if (wantsJson(req)) return res.status(error.status || 500).json({ ok: false, message: 'Không thể tạo file ZIP.' });
+      res.status(error.status || 500).send('Không thể tạo file ZIP.');
+    }
   } finally {
     if (release) release();
   }
@@ -857,15 +955,21 @@ app.post('/images/:id/delete', authRequired, async (req, res) => {
 
 app.use((req, res) => {
   if (req.path.startsWith('/assets/')) return res.sendStatus(404);
-  res.status(404).send('Không tìm thấy trang.');
+  const message = 'Không tìm thấy nội dung yêu cầu.';
+  if (wantsJson(req)) return res.status(404).json({ ok: false, message });
+  return redirectWithToast(req, res, message, req.session && req.session.user ? '/drive' : '/login');
 });
 
 app.use((error, req, res, _next) => {
   logError(error, req, 'unhandled');
   if (res.headersSent) return res.end();
   const status = Number(error.status) >= 400 && Number(error.status) < 600 ? Number(error.status) : 500;
-  if (wantsJson(req)) return res.status(status).json({ ok: false, message: status === 500 ? 'Đã xảy ra lỗi hệ thống.' : error.message, requestId: req.id });
-  res.status(status).send(status === 500 ? `Đã xảy ra lỗi hệ thống. Mã yêu cầu: ${req.id}` : error.message);
+  const message = status === 500
+    ? `Đã xảy ra lỗi hệ thống. Mã yêu cầu: ${req.id}`
+    : (error.message || 'Không thể hoàn thành yêu cầu.');
+  if (wantsJson(req)) return res.status(status).json({ ok: false, message, requestId: req.id });
+  if (req.path.startsWith('/assets/') || req.path.startsWith('/images/')) return res.status(status).send(message);
+  return redirectWithToast(req, res, message, req.session && req.session.user ? '/drive' : '/login');
 });
 
 let server;

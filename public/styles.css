@@ -1863,3 +1863,77 @@ body.lightbox-open {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* ---------- Toast notifications ---------- */
+.toast-stack {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 18px 44px rgba(82, 25, 20, 0.28);
+}
+
+.toast.error {
+  background: linear-gradient(135deg, rgba(183, 50, 43, 0.98), rgba(127, 31, 27, 0.98));
+}
+
+.toast-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.17);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.toast-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.toast-close {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: transparent;
+  font: inherit;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.82;
+}
+
+.toast-close:hover,
+.toast-close:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  opacity: 1;
+}
+
+.download-button.is-busy,
+.lightbox-button.is-busy {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+@media (max-width: 560px) {
+  .toast-stack {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+}

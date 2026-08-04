@@ -3,8 +3,14 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="asset-version" content="<%= assetVersion %>">
+  <meta name="csrf-token" content="<%= csrfToken %>">
   <title>Quản trị tài khoản · Richard Le Drive</title>
   <link rel="stylesheet" href="/assets/styles.css?v=<%= assetVersion %>">
+  <script src="/assets/toast.js?v=<%= assetVersion %>" defer></script>
   <script src="/assets/auth.js?v=<%= assetVersion %>" defer></script>
 </head>
 <body class="auth-page">
@@ -16,10 +22,10 @@
         <p class="eyebrow ink">QUẢN TRỊ</p>
         <h2>Quản lý tài khoản</h2>
         <p class="muted">Admin có thể tạo tài khoản mới, xóa người dùng và đổi mật khẩu.</p>
-        <% if (error) { %><div class="alert error"><%= error %></div><% } %>
-        <% if (success) { %><div class="alert success"><%= success %></div><% } %>
+        <% if (error) { %><div hidden data-toast-message="<%= error %>" data-toast-type="error"></div><% } %>
+        <% if (success) { %><div hidden data-toast-message="<%= success %>" data-toast-type="success"></div><% } %>
 
-        <form class="admin-form" method="post" action="/admin/users" data-busy-form>
+        <form class="admin-form" method="post" action="/admin/users" data-ajax-form data-success-reload="true">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <h3>Tạo tài khoản mới</h3>
           <label>Tên tài khoản<input name="username" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" required placeholder="newuser"></label>
@@ -40,14 +46,14 @@
                 <small><%= account.email %></small>
               </div>
               <div class="user-actions">
-                <form method="post" action="/admin/users/<%= account.id %>/reset-password" data-busy-form>
+                <form method="post" action="/admin/users/<%= account.id %>/reset-password" data-ajax-form data-success-reload="true">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <input type="password" name="newPassword" minlength="10" maxlength="128" placeholder="Mật khẩu mới" required>
                   <input type="password" name="newPasswordConfirm" minlength="10" maxlength="128" placeholder="Nhập lại" required>
                   <button class="button outline" type="submit">Đổi mật khẩu</button>
                 </form>
                 <% if (String(account.id) !== String(user.id)) { %>
-                  <form method="post" action="/admin/users/<%= account.id %>/delete" data-confirm="Xóa tài khoản này?">
+                  <form method="post" action="/admin/users/<%= account.id %>/delete" data-ajax-form data-success-reload="true" data-confirm="Xóa tài khoản này?">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                     <button class="button danger" type="submit">Xóa</button>
                   </form>
