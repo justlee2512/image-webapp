@@ -29,6 +29,16 @@ function showInlineAlerts() {
 }
 
 showInlineAlerts();
+try {
+  const savedSummary = sessionStorage.getItem('image-drive-upload-summary');
+  if (savedSummary) {
+    sessionStorage.removeItem('image-drive-upload-summary');
+    const summary = JSON.parse(savedSummary);
+    showToast(summary.message, summary.type || 'success');
+  }
+} catch (error) {
+  console.warn('Cannot restore upload summary', error);
+}
 
 async function submitAjaxForm(event) {
   const form = event.currentTarget;
@@ -60,28 +70,71 @@ document.querySelectorAll('form[data-ajax-form]').forEach((form) => {
 const progressBar = document.querySelector('#upload-bar');
 const progressStatus = document.querySelector('#upload-status');
 const progressPercent = document.querySelector('#upload-percent');
+const uploadButton = uploadForm?.querySelector('.upload-button');
+const allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 
-function uploadOne(file, folderId, index, total) {
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / (1024 ** unitIndex)).toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function setUploadProgress(value, status) {
+  const safeValue = Math.max(0, Math.min(100, Math.round(value)));
+  if (progressBar) progressBar.value = safeValue;
+  if (progressPercent) progressPercent.textContent = `${safeValue}%`;
+  if (progressStatus && status) progressStatus.textContent = status;
+}
+
+function uploadOne(file, folderId, index, total, batchTotalBytes) {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     const data = new FormData();
     data.append('folderId', folderId);
     data.append('image', file, file.name);
+
     request.open('POST', '/images');
-    request.setRequestHeader('X-Upload-Queue', 'sequential');
     request.responseType = 'json';
+    request.timeout = 10 * 60 * 1000;
+    request.setRequestHeader('Accept', 'application/json');
+    request.setRequestHeader('X-Upload-Queue', 'sequential');
+    request.setRequestHeader('X-Upload-Batch-Count', String(total));
+    request.setRequestHeader('X-Upload-Batch-Total-Bytes', String(batchTotalBytes));
+    request.setRequestHeader('X-Upload-Batch-Index', String(index + 1));
+
     request.upload.addEventListener('progress', (event) => {
-      if (!event.lengthComputable) return;
-      const fileProgress = event.loaded / event.total;
-      const totalProgress = Math.round(((index + fileProgress) / total) * 100);
-      progressBar.value = totalProgress;
-      progressPercent.textContent = `${totalProgress}%`;
+      const fileRatio = event.lengthComputable ? event.loaded / event.total : 0;
+      const batchRatio = (index + (fileRatio * 0.82)) / total;
+      setUploadProgress(
+        batchRatio * 100,
+        `Đang gửi ${index + 1}/${total}: ${file.name} (${formatBytes(event.loaded)}/${formatBytes(event.total || file.size)})`,
+      );
     });
+
+    request.upload.addEventListener('load', () => {
+      const batchRatio = (index + 0.9) / total;
+      setUploadProgress(
+        batchRatio * 100,
+        `Đã gửi ${index + 1}/${total}: ${file.name}. Máy chủ đang tạo thumbnail và lưu dữ liệu...`,
+      );
+    });
+
     request.addEventListener('load', () => {
-      if (request.status >= 200 && request.status < 300 && request.response?.ok) resolve();
-      else reject(new Error(request.response?.message || `Không thể tải ${file.name}.`));
+      const response = request.response || {};
+      if (request.responseURL?.includes('/login')) {
+        reject(new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'));
+        return;
+      }
+      if (request.status >= 200 && request.status < 300 && response.ok !== false) {
+        resolve(response);
+        return;
+      }
+      reject(new Error(response.message || `Upload thất bại (HTTP ${request.status}).`));
     });
-    request.addEventListener('error', () => reject(new Error(`Mất kết nối khi tải ${file.name}.`)));
+    request.addEventListener('error', () => reject(new Error('Mất kết nối khi upload.')));
+    request.addEventListener('abort', () => reject(new Error('Upload đã bị hủy.')));
+    request.addEventListener('timeout', () => reject(new Error('Máy chủ xử lý quá lâu và request đã hết thời gian chờ.')));
     request.send(data);
   });
 }
@@ -89,37 +142,98 @@ function uploadOne(file, folderId, index, total) {
 if (input && uploadForm) input.addEventListener('change', async () => {
   const files = [...input.files];
   if (!files.length) return;
+
   const maxSizeMb = Number(input.dataset.maxSizeMb || 30);
-  const oversized = files.find((file) => file.size > maxSizeMb * 1024 * 1024);
-  if (oversized) {
-    window.alert(`${oversized.name} lớn hơn giới hạn ${maxSizeMb} MB.`);
+  const maxFiles = Number(input.dataset.maxFiles || 50);
+  const maxTotalSizeMb = Number(input.dataset.maxTotalSizeMb || 1024);
+  const maxBytes = maxSizeMb * 1024 * 1024;
+  const maxTotalBytes = maxTotalSizeMb * 1024 * 1024;
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  const folderId = uploadForm.querySelector('[name="folderId"]')?.value || '';
+
+  if (files.length > maxFiles) {
+    showToast(`Chỉ được chọn tối đa ${maxFiles} ảnh mỗi lần.`, 'error');
     input.value = '';
     return;
   }
-  const folderId = uploadForm.querySelector('[name="folderId"]').value;
-  const uploadButton = uploadForm.querySelector('.upload-button');
-  input.disabled = true;
-  uploadButton.classList.add('disabled');
-  progressBox.hidden = false;
-  let completed = 0;
-  try {
-    for (let index = 0; index < files.length; index += 1) {
-      progressStatus.textContent = `Đang tải ${index + 1}/${files.length}: ${files[index].name}`;
-      await uploadOne(files[index], folderId, index, files.length);
-      completed += 1;
-      const percent = Math.round((completed / files.length) * 100);
-      progressBar.value = percent;
-      progressPercent.textContent = `${percent}%`;
-    }
-    progressStatus.textContent = `Hoàn tất ${completed}/${files.length} ảnh. Đang làm mới…`;
-    window.location.reload();
-  } catch (error) {
-    progressStatus.textContent = `${error.message} Đã hoàn thành ${completed}/${files.length} ảnh.`;
-    progressBox.classList.add('upload-failed');
-    input.disabled = false;
-    uploadButton.classList.remove('disabled');
+  if (totalBytes > maxTotalBytes) {
+    showToast(`Tổng dung lượng ${formatBytes(totalBytes)} vượt giới hạn ${formatBytes(maxTotalBytes)}.`, 'error');
     input.value = '';
+    return;
   }
+
+  const unsupported = files.find((file) => !allowedImageTypes.has(file.type));
+  if (unsupported) {
+    showToast(`${unsupported.name} không thuộc định dạng JPG, PNG, GIF hoặc WebP.`, 'error');
+    input.value = '';
+    return;
+  }
+
+  const oversized = files.find((file) => file.size > maxBytes);
+  if (oversized) {
+    showToast(`${oversized.name} vượt quá ${maxSizeMb} MB/ảnh.`, 'error');
+    input.value = '';
+    return;
+  }
+
+  input.disabled = true;
+  uploadButton?.classList.add('disabled');
+  progressBox?.classList.remove('upload-failed');
+  if (progressBox) progressBox.hidden = false;
+  setUploadProgress(0, `Chuẩn bị upload ${files.length} ảnh (${formatBytes(totalBytes)})...`);
+
+  let successful = 0;
+  const failures = [];
+
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    try {
+      await uploadOne(file, folderId, index, files.length, totalBytes);
+      successful += 1;
+      setUploadProgress(
+        ((index + 1) / files.length) * 100,
+        `Đã xử lý xong ${index + 1}/${files.length}: ${file.name}`,
+      );
+    } catch (error) {
+      failures.push({ name: file.name, reason: error.message });
+      progressBox?.classList.add('upload-failed');
+      setUploadProgress(
+        ((index + 1) / files.length) * 100,
+        `Lỗi ${file.name}: ${error.message}. Tiếp tục ảnh kế tiếp...`,
+      );
+    }
+  }
+
+  const failed = failures.length;
+  const failureDetails = failures
+    .slice(0, 3)
+    .map((item) => `${item.name}: ${item.reason}`)
+    .join(' | ');
+  const extraFailures = failed > 3 ? ` | và ${failed - 3} ảnh lỗi khác` : '';
+  const message = failed === 0
+    ? `Hoàn tất ${successful}/${files.length} ảnh.`
+    : `Đã tải ${successful}/${files.length} ảnh; ${failed} ảnh lỗi. ${failureDetails}${extraFailures}`;
+
+  setUploadProgress(100, message);
+  input.value = '';
+
+  if (successful > 0) {
+    try {
+      sessionStorage.setItem('image-drive-upload-summary', JSON.stringify({
+        message,
+        type: failed === 0 ? 'success' : 'error',
+      }));
+    } catch (error) {
+      console.warn('Cannot save upload summary', error);
+    }
+    window.setTimeout(() => window.location.reload(), 700);
+    return;
+  }
+
+  input.disabled = false;
+  uploadButton?.classList.remove('disabled');
+  progressBox?.classList.add('upload-failed');
+  showToast(message, 'error');
 });
 
 const selectAll = document.querySelector('#select-all');

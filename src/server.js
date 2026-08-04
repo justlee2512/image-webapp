@@ -22,6 +22,9 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const maxAccounts = Number(process.env.MAX_ACCOUNTS || 5);
 const maxFileSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 30);
+const maxUploadFiles = Number(process.env.MAX_UPLOAD_FILES || 50);
+const maxUploadTotalMb = Number(process.env.MAX_UPLOAD_TOTAL_MB || 1024);
+const maxUploadTotalBytes = maxUploadTotalMb * 1024 * 1024;
 const sessionTtlMs = Number(process.env.SESSION_IDLE_TIMEOUT_MS || process.env.SESSION_TTL_MS || 1000 * 60 * 15);
 
 if (process.env.NODE_ENV === 'production' && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
@@ -296,7 +299,7 @@ app.get('/drive', authRequired, async (req, res) => {
       user: req.session.user, images: imagesResult.rows, folders: foldersResult.rows,
       currentFolder: access.folder, isOwner: access.isOwner, sharedUsers: sharesResult.rows,
       error: req.session.error || null, success: req.session.success || null,
-      maxFileSizeMb, isAdmin
+      maxFileSizeMb, maxUploadFiles, maxUploadTotalMb, isAdmin
     });
     clearFlash(req);
   } catch (error) { console.error(error); res.status(500).send('Không thể tải thư viện ảnh.'); }
@@ -362,33 +365,96 @@ app.post('/images/move', authRequired, async (req, res) => {
 });
 
 app.post('/images', authRequired, (req, res) => {
-  uploadQueue.acquire().then((releaseUpload) => upload.fields([{ name: 'image', maxCount: 1 }, { name: 'images', maxCount: 1 }])(req, res, async (error) => {
-    const isAdmin = isAdminUser(req.session.user);
-    const folderId = req.body && req.body.folderId ? String(req.body.folderId) : null;
-    const redirectTo = driveUrl(folderId);
-    const uploadedFile = req.files && ((req.files.image && req.files.image[0]) || (req.files.images && req.files.images[0]));
-    const isQueueUpload = req.get('X-Upload-Queue') === 'sequential';
-    const finish = (ok, message) => {
-      releaseUpload();
-      if (isQueueUpload) return res.status(ok ? 200 : 400).json({ ok, message });
-      req.session[ok ? 'success' : 'error'] = message;
-      return res.redirect(redirectTo);
-    };
-    if (error) return finish(false, error.code === 'LIMIT_FILE_SIZE' ? `Mỗi ảnh không được lớn hơn ${maxFileSizeMb} MB.` : error.message);
-    if (!uploadedFile) return finish(false, 'Server không nhận được dữ liệu ảnh. Vui lòng tải lại trang và chọn ảnh lần nữa.');
-    try {
-      const access = await getFolderAccess(folderId, req.session.user.id, isAdmin);
-      if (!access || (!access.isOwner && !isAdmin)) return finish(false, 'Bạn không có quyền tải ảnh vào folder này.');
-      const thumbnail = await sharp(uploadedFile.buffer, { failOn: 'none', animated: false })
-        .rotate().resize({ width: 520, height: 390, fit: 'cover', withoutEnlargement: true })
-        .webp({ quality: 72 }).toBuffer();
-      await pool.query(
-        'INSERT INTO image_drive.images (id, user_id, folder_id, original_name, mime_type, size_bytes, image_data, thumbnail_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [crypto.randomUUID(), req.session.user.id, folderId, uploadedFile.originalname.slice(0, 255), uploadedFile.mimetype, uploadedFile.size, uploadedFile.buffer, thumbnail]
-      );
-      return finish(true, 'Đã tải lên 1 ảnh.');
-    } catch (dbError) { console.error(dbError); return finish(false, 'Không thể lưu ảnh.'); }
-  }));
+  uploadQueue.acquire()
+    .then((releaseUpload) => upload.fields([
+      { name: 'image', maxCount: 1 },
+      { name: 'images', maxCount: 1 },
+    ])(req, res, async (error) => {
+      const isAdmin = isAdminUser(req.session.user);
+      const folderId = req.body && req.body.folderId ? String(req.body.folderId) : null;
+      const redirectTo = driveUrl(folderId);
+      const isQueueUpload = req.get('X-Upload-Queue') === 'sequential';
+      let released = false;
+
+      const release = () => {
+        if (released) return;
+        released = true;
+        releaseUpload();
+      };
+      const finish = (ok, status, message, extra = {}) => {
+        release();
+        if (isQueueUpload) return res.status(status).json({ ok, message, ...extra });
+        req.session[ok ? 'success' : 'error'] = message;
+        return res.redirect(redirectTo);
+      };
+
+      if (error) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return finish(false, 413, `Mỗi ảnh không được lớn hơn ${maxFileSizeMb} MB.`);
+        }
+        if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+          return finish(false, 400, 'Mỗi request chỉ được gửi một ảnh.');
+        }
+        return finish(false, 400, error.message || 'Không thể nhận file upload.');
+      }
+
+      const uploadedFile = req.files && ((req.files.image && req.files.image[0]) || (req.files.images && req.files.images[0]));
+      if (!uploadedFile) {
+        return finish(false, 400, 'Server không nhận được dữ liệu ảnh. Vui lòng tải lại trang và chọn ảnh lần nữa.');
+      }
+
+      const batchCount = Number(req.get('X-Upload-Batch-Count') || 1);
+      const batchTotalBytes = Number(req.get('X-Upload-Batch-Total-Bytes') || uploadedFile.size || 0);
+      const batchIndex = Number(req.get('X-Upload-Batch-Index') || 1);
+
+      if (!Number.isInteger(batchCount) || batchCount < 1 || batchCount > maxUploadFiles) {
+        return finish(false, 400, `Mỗi lần chỉ được chọn tối đa ${maxUploadFiles} ảnh.`);
+      }
+      if (!Number.isFinite(batchTotalBytes) || batchTotalBytes <= 0 || batchTotalBytes > maxUploadTotalBytes) {
+        return finish(false, 413, `Tổng dung lượng mỗi lần upload không được vượt quá ${maxUploadTotalMb} MB.`);
+      }
+      if (!Number.isInteger(batchIndex) || batchIndex < 1 || batchIndex > batchCount) {
+        return finish(false, 400, 'Thông tin thứ tự upload không hợp lệ.');
+      }
+
+      try {
+        const access = await getFolderAccess(folderId, req.session.user.id, isAdmin);
+        if (!access || (!access.isOwner && !isAdmin)) {
+          return finish(false, 403, 'Bạn không có quyền tải ảnh vào folder này.');
+        }
+
+        const thumbnail = await sharp(uploadedFile.buffer, { failOn: 'none', animated: false })
+          .rotate()
+          .resize({ width: 520, height: 390, fit: 'cover', withoutEnlargement: true })
+          .webp({ quality: 72 })
+          .toBuffer();
+
+        await pool.query(
+          'INSERT INTO image_drive.images (id, user_id, folder_id, original_name, mime_type, size_bytes, image_data, thumbnail_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [crypto.randomUUID(), req.session.user.id, folderId, uploadedFile.originalname.slice(0, 255), uploadedFile.mimetype, uploadedFile.size, uploadedFile.buffer, thumbnail]
+        );
+
+        return finish(true, 201, 'Đã tải lên 1 ảnh.', {
+          batchIndex,
+          batchCount,
+        });
+      } catch (dbError) {
+        console.error('Upload failed', {
+          filename: uploadedFile.originalname,
+          size: uploadedFile.size,
+          batchIndex,
+          batchCount,
+          error: dbError,
+        });
+        return finish(false, 500, `Không thể xử lý hoặc lưu ảnh ${uploadedFile.originalname}.`);
+      }
+    }))
+    .catch((queueError) => {
+      console.error('Cannot acquire upload slot', queueError);
+      if (!res.headersSent) {
+        res.status(503).json({ ok: false, message: 'Máy chủ đang bận, vui lòng thử lại.' });
+      }
+    });
 });
 
 app.get('/images/:id/thumbnail', authRequired, async (req, res) => {

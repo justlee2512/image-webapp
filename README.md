@@ -32,7 +32,7 @@ npm install
 npm start
 ```
 
-Mặc định hỗ trợ JPG, PNG, GIF, WebP, tối đa 30 MB mỗi ảnh và không giới hạn số ảnh được chọn. Ảnh được upload tuần tự, mỗi request chỉ chứa một ảnh. Có thể đổi giới hạn dung lượng qua biến môi trường `MAX_FILE_SIZE_MB`.
+Mặc định hỗ trợ JPG, PNG, GIF, WebP, tối đa 30 MB mỗi ảnh, tối đa 50 ảnh mỗi lần chọn và tổng dung lượng không quá 1 GB. Ảnh vẫn được upload tuần tự, mỗi request chỉ chứa một ảnh để tránh đưa cả batch 1 GB vào RAM của Node.js. Có thể đổi giới hạn bằng `MAX_FILE_SIZE_MB`, `MAX_UPLOAD_FILES` và `MAX_UPLOAD_TOTAL_MB`.
 
 ## Dùng PostgreSQL có sẵn
 
