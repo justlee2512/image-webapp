@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="/styles.css?<%= assetVersion %>">
 </head>
 <body class="auth-page">
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <main class="auth-shell admin-shell">
     <section class="auth-panel">
       <div class="auth-card admin-card">
@@ -16,7 +17,7 @@
         <% if (error) { %><div class="alert error"><%= error %></div><% } %>
         <% if (success) { %><div class="alert success"><%= success %></div><% } %>
 
-        <form class="admin-form" method="post" action="/admin/users">
+        <form class="admin-form" method="post" action="/admin/users" data-ajax-form="true">
           <h3>Tạo tài khoản mới</h3>
           <label>Tên tài khoản<input name="username" required placeholder="newuser"></label>
           <label>Email<input type="email" name="email" required placeholder="newuser@example.com"></label>
@@ -34,13 +35,13 @@
                 <small><%= account.email %></small>
               </div>
               <div class="user-actions">
-                <form method="post" action="/admin/users/<%= account.id %>/reset-password">
+                <form method="post" action="/admin/users/<%= account.id %>/reset-password" data-ajax-form="true">
                   <input type="password" name="newPassword" placeholder="Mật khẩu mới" required>
                   <input type="password" name="newPasswordConfirm" placeholder="Nhập lại" required>
                   <button class="button outline" type="submit">Đổi mật khẩu</button>
                 </form>
                 <% if (Number(account.id) !== Number(user.id)) { %>
-                  <form method="post" action="/admin/users/<%= account.id %>/delete" onsubmit="return confirm('Xóa tài khoản này?')">
+                  <form method="post" action="/admin/users/<%= account.id %>/delete" data-ajax-form="true" onsubmit="return confirm('Xóa tài khoản này?')">
                     <button class="button danger" type="submit">Xóa</button>
                   </form>
                 <% } %>

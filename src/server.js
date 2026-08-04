@@ -13,6 +13,7 @@ const pool = require('./db');
 const PgSessionStore = require('./pg-session-store');
 const { ensureAdminBootstrap, isAdminUser, validateAccountInput, validatePasswordChangeInput } = require('./admin');
 const { getAssetVersion, applyCacheHeaders } = require('./cache');
+const { setFlash, clearFlash } = require('./flash');
 
 sharp.cache(false);
 sharp.concurrency(1);
@@ -94,6 +95,14 @@ function renderAuth(res, view, values = {}) {
 
 function driveUrl(folderId) {
   return folderId ? `/drive?folder=${encodeURIComponent(folderId)}` : '/drive';
+}
+
+function sendActionResponse(req, res, ok, message, redirectTo = '/drive') {
+  if (req.get('X-Requested-With') === 'XMLHttpRequest') {
+    return res.status(ok ? 200 : 400).json({ ok, message });
+  }
+  setFlash(req, ok ? 'success' : 'error', message);
+  return res.redirect(redirectTo);
 }
 
 async function getFolderAccess(folderId, userId, isAdmin = false) {
@@ -178,7 +187,7 @@ app.get('/admin/users', authRequired, async (req, res) => {
   try {
     const result = await pool.query('SELECT id, username, email, created_at FROM image_drive.users ORDER BY username');
     res.render('admin-users', { user: req.session.user, users: result.rows, error: req.session.error || null, success: req.session.success || null, maxAccounts });
-    delete req.session.error; delete req.session.success;
+    clearFlash(req);
   } catch (error) {
     console.error(error);
     res.status(500).send('Không thể tải danh sách tài khoản.');
@@ -190,7 +199,7 @@ app.post('/admin/users', authRequired, async (req, res) => {
 
   const validation = validateAccountInput(req.body, { maxAccounts, currentCount: await pool.query('SELECT COUNT(*)::int AS total FROM image_drive.users').then((r) => r.rows[0].total), isAdmin: true });
   if (!validation.ok) {
-    req.session.error = validation.error;
+    setFlash(req, 'error', validation.error);
     return res.redirect('/admin/users');
   }
 
@@ -200,9 +209,9 @@ app.post('/admin/users', authRequired, async (req, res) => {
   try {
     const passwordHash = await bcrypt.hash(password, 12);
     await pool.query('INSERT INTO image_drive.users (username, email, password_hash) VALUES ($1, $2, $3)', [username, email, passwordHash]);
-    req.session.success = `Đã tạo tài khoản ${username}.`;
+    setFlash(req, 'success', `Đã tạo tài khoản ${username}.`);
   } catch (error) {
-    req.session.error = error.code === '23505' ? 'Tên tài khoản hoặc email đã được sử dụng.' : 'Không thể tạo tài khoản.';
+    setFlash(req, 'error', error.code === '23505' ? 'Tên tài khoản hoặc email đã được sử dụng.' : 'Không thể tạo tài khoản.');
   }
   res.redirect('/admin/users');
 });
@@ -210,15 +219,15 @@ app.post('/admin/users', authRequired, async (req, res) => {
 app.post('/admin/users/:id/delete', authRequired, async (req, res) => {
   if (!isAdminUser(req.session.user)) return res.status(403).send('Bạn không có quyền quản trị.');
   if (String(req.params.id) === String(req.session.user.id)) {
-    req.session.error = 'Bạn không thể tự xóa tài khoản của chính mình.';
+    setFlash(req, 'error', 'Bạn không thể tự xóa tài khoản của chính mình.');
     return res.redirect('/admin/users');
   }
   try {
     const result = await pool.query('DELETE FROM image_drive.users WHERE id = $1 RETURNING id', [req.params.id]);
-    req.session[result.rowCount ? 'success' : 'error'] = result.rowCount ? 'Đã xóa tài khoản.' : 'Không tìm thấy tài khoản.';
+    setFlash(req, result.rowCount ? 'success' : 'error', result.rowCount ? 'Đã xóa tài khoản.' : 'Không tìm thấy tài khoản.');
   } catch (error) {
     console.error(error);
-    req.session.error = 'Không thể xóa tài khoản.';
+    setFlash(req, 'error', 'Không thể xóa tài khoản.');
   }
   res.redirect('/admin/users');
 });
@@ -235,10 +244,10 @@ app.post('/admin/users/:id/reset-password', authRequired, async (req, res) => {
   try {
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await pool.query('UPDATE image_drive.users SET password_hash = $1 WHERE id = $2', [passwordHash, req.params.id]);
-    req.session.success = 'Đã đổi mật khẩu cho tài khoản.';
+    setFlash(req, 'success', 'Đã đổi mật khẩu cho tài khoản.');
   } catch (error) {
     console.error(error);
-    req.session.error = 'Không thể đổi mật khẩu.';
+    setFlash(req, 'error', 'Không thể đổi mật khẩu.');
   }
   res.redirect('/admin/users');
 });
@@ -289,27 +298,25 @@ app.get('/drive', authRequired, async (req, res) => {
       error: req.session.error || null, success: req.session.success || null,
       maxFileSizeMb, isAdmin
     });
-    delete req.session.error; delete req.session.success;
+    clearFlash(req);
   } catch (error) { console.error(error); res.status(500).send('Không thể tải thư viện ảnh.'); }
 });
 
 app.post('/folders', authRequired, async (req, res) => {
   const name = String(req.body.name || '').trim();
-  if (!name || name.length > 100) { req.session.error = 'Tên folder cần từ 1 đến 100 ký tự.'; return res.redirect('/drive'); }
+  if (!name || name.length > 100) return sendActionResponse(req, res, false, 'Tên folder cần từ 1 đến 100 ký tự.');
   try {
     await pool.query('INSERT INTO image_drive.folders (id, owner_id, name) VALUES ($1, $2, $3)', [crypto.randomUUID(), req.session.user.id, name]);
-    req.session.success = 'Đã tạo folder mới.';
+    return sendActionResponse(req, res, true, 'Đã tạo folder mới.');
   } catch (error) {
-    req.session.error = error.code === '23505' ? 'Bạn đã có folder với tên này.' : 'Không thể tạo folder.';
+    return sendActionResponse(req, res, false, error.code === '23505' ? 'Bạn đã có folder với tên này.' : 'Không thể tạo folder.');
   }
-  res.redirect('/drive');
 });
 
 app.post('/folders/:id/delete', authRequired, async (req, res) => {
   const isAdmin = isAdminUser(req.session.user);
   const result = await pool.query('DELETE FROM image_drive.folders WHERE id = $1 AND ($2 OR owner_id = $3) RETURNING id', [req.params.id, isAdmin, req.session.user.id]);
-  req.session[result.rowCount ? 'success' : 'error'] = result.rowCount ? 'Đã xóa folder và toàn bộ ảnh bên trong.' : 'Bạn không có quyền xóa folder này.';
-  res.redirect('/drive');
+  return sendActionResponse(req, res, result.rowCount > 0, result.rowCount ? 'Đã xóa folder và toàn bộ ảnh bên trong.' : 'Bạn không có quyền xóa folder này.');
 });
 
 app.post('/folders/:id/share', authRequired, async (req, res) => {
@@ -319,11 +326,10 @@ app.post('/folders/:id/share', authRequired, async (req, res) => {
     const folder = await pool.query('SELECT id FROM image_drive.folders WHERE id = $1 AND ($2 OR owner_id = $3)', [req.params.id, isAdmin, req.session.user.id]);
     if (!folder.rowCount) throw new Error('NO_PERMISSION');
     const target = await pool.query('SELECT id FROM image_drive.users WHERE (lower(username) = lower($1) OR lower(email) = lower($1)) AND id <> $2', [identity, req.session.user.id]);
-    if (!target.rowCount) { req.session.error = 'Không tìm thấy tài khoản để chia sẻ.'; return res.redirect(driveUrl(req.params.id)); }
+    if (!target.rowCount) return sendActionResponse(req, res, false, 'Không tìm thấy tài khoản để chia sẻ.', driveUrl(req.params.id));
     await pool.query('INSERT INTO image_drive.folder_shares (folder_id, user_id, shared_by) VALUES ($1, $2, $3) ON CONFLICT (folder_id, user_id) DO NOTHING', [req.params.id, target.rows[0].id, req.session.user.id]);
-    req.session.success = 'Đã chia sẻ folder.';
-  } catch (error) { req.session.error = error.message === 'NO_PERMISSION' ? 'Bạn không có quyền chia sẻ folder này.' : 'Không thể chia sẻ folder.'; }
-  res.redirect(driveUrl(req.params.id));
+    return sendActionResponse(req, res, true, 'Đã chia sẻ folder.', driveUrl(req.params.id));
+  } catch (error) { return sendActionResponse(req, res, false, error.message === 'NO_PERMISSION' ? 'Bạn không có quyền chia sẻ folder này.' : 'Không thể chia sẻ folder.', driveUrl(req.params.id)); }
 });
 
 app.post('/folders/:id/unshare', authRequired, async (req, res) => {
@@ -332,8 +338,7 @@ app.post('/folders/:id/unshare', authRequired, async (req, res) => {
     'DELETE FROM image_drive.folder_shares s USING image_drive.folders f WHERE s.folder_id = f.id AND s.folder_id = $1 AND s.user_id = $2 AND ($3 OR f.owner_id = $4)',
     [req.params.id, req.body.userId, isAdmin, req.session.user.id]
   );
-  req.session.success = 'Đã thu hồi quyền chia sẻ.';
-  res.redirect(driveUrl(req.params.id));
+  return sendActionResponse(req, res, true, 'Đã thu hồi quyền chia sẻ.', driveUrl(req.params.id));
 });
 
 app.post('/images/move', authRequired, async (req, res) => {
@@ -487,21 +492,17 @@ app.post('/images/delete-batch', authRequired, async (req, res) => {
   const ids = Array.isArray(req.body.imageIds) ? req.body.imageIds : req.body.imageIds ? [req.body.imageIds] : [];
   const folderId = req.body.folderId ? String(req.body.folderId) : null;
   const isAdmin = isAdminUser(req.session.user);
-  if (!ids.length || ids.length > 1000) {
-    req.session.error = 'Vui lòng chọn ít nhất một ảnh để xóa.';
-    return res.redirect(driveUrl(folderId));
-  }
+  if (!ids.length || ids.length > 1000) return sendActionResponse(req, res, false, 'Vui lòng chọn ít nhất một ảnh để xóa.', driveUrl(folderId));
   try {
     const result = await pool.query(
       'DELETE FROM image_drive.images WHERE id = ANY($1::uuid[]) AND ($3 OR user_id = $2) RETURNING id',
       [ids, req.session.user.id, isAdmin]
     );
-    req.session.success = `Đã xóa ${result.rowCount} ảnh.`;
+    return sendActionResponse(req, res, true, `Đã xóa ${result.rowCount} ảnh.`, driveUrl(folderId));
   } catch (error) {
     console.error(error);
-    req.session.error = 'Không thể xóa các ảnh đã chọn.';
+    return sendActionResponse(req, res, false, 'Không thể xóa các ảnh đã chọn.', driveUrl(folderId));
   }
-  res.redirect(driveUrl(folderId));
 });
 
 app.post('/images/delete-all', authRequired, async (req, res) => {
@@ -511,26 +512,23 @@ app.post('/images/delete-all', authRequired, async (req, res) => {
     if (folderId) {
       const access = await getFolderAccess(folderId, req.session.user.id, isAdmin);
       if (!access || (!access.isOwner && !isAdmin)) {
-        req.session.error = 'Bạn không có quyền xóa ảnh trong folder này.';
-        return res.redirect(driveUrl(folderId));
+        return sendActionResponse(req, res, false, 'Bạn không có quyền xóa ảnh trong folder này.', driveUrl(folderId));
       }
     }
     const result = folderId
       ? await pool.query('DELETE FROM image_drive.images WHERE ($2 OR user_id = $1) AND folder_id = $3 RETURNING id', [req.session.user.id, isAdmin, folderId])
       : await pool.query('DELETE FROM image_drive.images WHERE ($2 OR user_id = $1) AND folder_id IS NULL RETURNING id', [req.session.user.id, isAdmin]);
-    req.session.success = `Đã xóa toàn bộ ${result.rowCount} ảnh trong thư mục hiện tại.`;
+    return sendActionResponse(req, res, true, `Đã xóa toàn bộ ${result.rowCount} ảnh trong thư mục hiện tại.`, driveUrl(folderId));
   } catch (error) {
     console.error(error);
-    req.session.error = 'Không thể xóa toàn bộ ảnh.';
+    return sendActionResponse(req, res, false, 'Không thể xóa toàn bộ ảnh.', driveUrl(folderId));
   }
-  res.redirect(driveUrl(folderId));
 });
 
 app.post('/images/:id/delete', authRequired, async (req, res) => {
   const isAdmin = isAdminUser(req.session.user);
   const result = await pool.query('DELETE FROM image_drive.images WHERE id = $1 AND ($3 OR user_id = $2) RETURNING folder_id', [req.params.id, req.session.user.id, isAdmin]);
-  req.session.success = 'Ảnh đã được xóa.';
-  res.redirect(driveUrl(result.rows[0] && result.rows[0].folder_id));
+  return sendActionResponse(req, res, true, 'Ảnh đã được xóa.', driveUrl(result.rows[0] && result.rows[0].folder_id));
 });
 
 app.use((_req, res) => res.status(404).send('Không tìm thấy trang.'));
