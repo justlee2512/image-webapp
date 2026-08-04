@@ -1,27 +1,42 @@
-const password = document.querySelector('#register-password');
-const passwordConfirm = document.querySelector('#register-password-confirm');
-const toggle = document.querySelector('[data-password-toggle]');
-const matchMessage = document.querySelector('#password-match');
+(() => {
+  'use strict';
 
-function validatePasswordMatch() {
-  if (!password || !passwordConfirm) return;
-  const matches = !passwordConfirm.value || password.value === passwordConfirm.value;
-  passwordConfirm.setCustomValidity(matches ? '' : 'Hai mật khẩu không trùng khớp.');
-  if (matchMessage) {
-    matchMessage.textContent = passwordConfirm.value ? (matches ? '✓ Mật khẩu trùng khớp' : 'Mật khẩu chưa trùng khớp') : '';
-    matchMessage.classList.toggle('matches', matches && Boolean(passwordConfirm.value));
-    matchMessage.classList.toggle('mismatch', !matches);
-  }
-}
+  document.querySelectorAll('[data-password-target]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const input = document.getElementById(button.dataset.passwordTarget);
+      if (!input) return;
+      const visible = input.type === 'text';
+      input.type = visible ? 'password' : 'text';
+      button.textContent = visible ? 'Hiện' : 'Ẩn';
+      button.setAttribute('aria-label', visible ? 'Hiện mật khẩu' : 'Ẩn mật khẩu');
+    });
+  });
 
-toggle?.addEventListener('click', () => {
-  const showing = password.type === 'text';
-  [password, passwordConfirm].forEach((input) => { if (input) input.type = showing ? 'password' : 'text'; });
-  toggle.textContent = showing ? 'Hiện' : 'Ẩn';
-  toggle.setAttribute('aria-label', showing ? 'Hiện mật khẩu' : 'Ẩn mật khẩu');
-  toggle.setAttribute('aria-pressed', String(!showing));
-  password.focus();
-});
+  document.querySelectorAll('[data-password-meter]').forEach((meter) => {
+    const input = document.getElementById(meter.dataset.passwordMeter);
+    if (!input) return;
+    const update = () => {
+      const value = input.value;
+      const score = [value.length >= 10, /[a-z]/.test(value) && /[A-Z]/.test(value), /\d/.test(value), /[^A-Za-z0-9]/.test(value)].filter(Boolean).length;
+      meter.value = score;
+    };
+    input.addEventListener('input', update);
+    update();
+  });
 
-password?.addEventListener('input', validatePasswordMatch);
-passwordConfirm?.addEventListener('input', validatePasswordMatch);
+  document.querySelectorAll('[data-confirm]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+    });
+  });
+
+  document.querySelectorAll('[data-busy-form]').forEach((form) => {
+    form.addEventListener('submit', () => {
+      const button = form.querySelector('button[type="submit"]');
+      if (!button) return;
+      button.disabled = true;
+      button.dataset.originalText = button.textContent;
+      button.textContent = 'Đang xử lý…';
+    });
+  });
+})();

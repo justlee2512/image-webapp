@@ -5,6 +5,8 @@ class PgSessionStore extends session.Store {
     super();
     this.pool = options.pool;
     this.ttlMs = options.ttlMs;
+    this.touchAfterMs = options.touchAfterMs || 60000;
+    this.lastTouched = new Map();
     this.ready = this.createTable();
 
     const pruneIntervalMs = options.pruneIntervalMs || 15 * 60 * 1000;
@@ -18,12 +20,12 @@ class PgSessionStore extends session.Store {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query("SELECT pg_advisory_xact_lock(hashtext('image_drive_session_schema'))");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('image_drive_session_schema_v2'))");
       await client.query(`
         CREATE TABLE IF NOT EXISTS image_drive.sessions (
           sid VARCHAR(128) PRIMARY KEY,
           sess JSONB NOT NULL,
-          expire TIMESTAMP WITH TIME ZONE NOT NULL
+          expire TIMESTAMPTZ NOT NULL
         )
       `);
       await client.query('CREATE INDEX IF NOT EXISTS sessions_expire_idx ON image_drive.sessions (expire)');
@@ -57,14 +59,22 @@ class PgSessionStore extends session.Store {
       .then(() => this.pool.query(
         `INSERT INTO image_drive.sessions (sid, sess, expire)
          VALUES ($1, $2::jsonb, $3)
-         ON CONFLICT (sid) DO UPDATE SET sess = EXCLUDED.sess, expire = EXCLUDED.expire`,
+         ON CONFLICT (sid) DO UPDATE
+         SET sess = EXCLUDED.sess, expire = EXCLUDED.expire`,
         [sid, JSON.stringify(sess), this.expiration(sess)]
       ))
-      .then(() => callback())
+      .then(() => {
+        this.lastTouched.set(sid, Date.now());
+        callback();
+      })
       .catch(callback);
   }
 
   touch(sid, sess, callback = () => {}) {
+    const now = Date.now();
+    const previous = this.lastTouched.get(sid) || 0;
+    if (now - previous < this.touchAfterMs) return callback();
+    this.lastTouched.set(sid, now);
     this.ready
       .then(() => this.pool.query(
         'UPDATE image_drive.sessions SET expire = $2 WHERE sid = $1',
@@ -75,6 +85,7 @@ class PgSessionStore extends session.Store {
   }
 
   destroy(sid, callback = () => {}) {
+    this.lastTouched.delete(sid);
     this.ready
       .then(() => this.pool.query('DELETE FROM image_drive.sessions WHERE sid = $1', [sid]))
       .then(() => callback())
@@ -84,6 +95,10 @@ class PgSessionStore extends session.Store {
   async prune() {
     await this.ready;
     await this.pool.query('DELETE FROM image_drive.sessions WHERE expire <= CURRENT_TIMESTAMP');
+    const threshold = Date.now() - this.ttlMs * 2;
+    for (const [sid, touchedAt] of this.lastTouched) {
+      if (touchedAt < threshold) this.lastTouched.delete(sid);
+    }
   }
 }
 

@@ -1,19 +1,14 @@
 services:
   app:
     build: .
-    environment:
-      PORT: 3000
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST:-192.168.2.90}:${DB_PORT:-5432}/${DB_NAME:-webapp}
-      SESSION_SECRET: ${SESSION_SECRET}
-      SESSION_IDLE_TIMEOUT_MS: ${SESSION_IDLE_TIMEOUT_MS:-900000}
-      TRUST_PROXY: ${TRUST_PROXY:-false}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      MAX_ACCOUNTS: ${MAX_ACCOUNTS:-5}
-      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-30}
-      DB_POOL_MAX: ${DB_POOL_MAX:-5}
-      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-120000}
-      MAX_CONCURRENT_UPLOADS: ${MAX_CONCURRENT_UPLOADS:-1}
-      MAX_CONCURRENT_DOWNLOADS: ${MAX_CONCURRENT_DOWNLOADS:-2}
+    restart: unless-stopped
+    env_file: .env
     ports:
       - "3000:3000"
-    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

@@ -1,329 +1,306 @@
-const input = document.querySelector('#image-input');
-const uploadForm = document.querySelector('.upload-form');
-const progressBox = document.querySelector('#upload-progress');
-const toastStack = document.querySelector('#toast-stack');
+(() => {
+  'use strict';
 
-function showToast(message, type = 'error') {
-  if (!message || !toastStack) return;
-  const toast = document.createElement('div');
-  toast.className = `toast ${type} is-visible`;
-  toast.textContent = message;
-  toastStack.appendChild(toast);
-  window.setTimeout(() => {
-    toast.classList.add('is-hiding');
-    window.setTimeout(() => toast.remove(), 220);
-  }, 3200);
-}
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const folderId = document.body.dataset.folderId || '';
+  const maxFileSize = Number(document.body.dataset.maxFileSizeMb || 30) * 1024 * 1024;
+  const alertBox = document.querySelector('[data-live-alert]');
 
-function showInlineAlerts() {
-  document.querySelectorAll('.alert').forEach((alert) => {
-    if (!alert.classList.contains('toast')) {
-      alert.classList.add('toast');
-      alert.classList.add('is-visible');
-      window.setTimeout(() => {
-        alert.classList.add('is-hiding');
-        window.setTimeout(() => alert.remove(), 220);
-      }, 3200);
-    }
-  });
-}
-
-showInlineAlerts();
-
-async function submitAjaxForm(event) {
-  const form = event.currentTarget;
-  const submitter = event.submitter;
-  const actionUrl = submitter?.getAttribute('formaction') || form.getAttribute('action') || form.action;
-  const formData = new FormData(form);
-  const body = new URLSearchParams(formData);
-  try {
-    const response = await fetch(actionUrl, {
-      method: form.method || 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
-      body
-    });
-    const result = await response.json().catch(() => null);
-    if (!response.ok || !result?.ok) throw new Error(result?.message || 'Không thể thực hiện thao tác.');
-    showToast(result.message || 'Thao tác thành công.', 'success');
-    window.setTimeout(() => window.location.reload(), 300);
-  } catch (error) {
-    showToast(error.message || 'Không thể thực hiện thao tác.', 'error');
+  function showAlert(message, type = 'success') {
+    if (!alertBox) return;
+    alertBox.textContent = message;
+    alertBox.className = `alert alert-${type}`;
+    alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
-}
 
-document.querySelectorAll('form[data-ajax-form]').forEach((form) => {
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    submitAjaxForm(event);
-  });
-});
-const progressBar = document.querySelector('#upload-bar');
-const progressStatus = document.querySelector('#upload-status');
-const progressPercent = document.querySelector('#upload-percent');
-
-function uploadOne(file, folderId, index, total) {
-  return new Promise((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    const data = new FormData();
-    data.append('folderId', folderId);
-    data.append('image', file, file.name);
-    request.open('POST', '/images');
-    request.setRequestHeader('X-Upload-Queue', 'sequential');
-    request.responseType = 'json';
-    request.upload.addEventListener('progress', (event) => {
-      if (!event.lengthComputable) return;
-      const fileProgress = event.loaded / event.total;
-      const totalProgress = Math.round(((index + fileProgress) / total) * 100);
-      progressBar.value = totalProgress;
-      progressPercent.textContent = `${totalProgress}%`;
-    });
-    request.addEventListener('load', () => {
-      if (request.status >= 200 && request.status < 300 && request.response?.ok) resolve();
-      else reject(new Error(request.response?.message || `Không thể tải ${file.name}.`));
-    });
-    request.addEventListener('error', () => reject(new Error(`Mất kết nối khi tải ${file.name}.`)));
-    request.send(data);
-  });
-}
-
-if (input && uploadForm) input.addEventListener('change', async () => {
-  const files = [...input.files];
-  if (!files.length) return;
-  const maxSizeMb = Number(input.dataset.maxSizeMb || 30);
-  const oversized = files.find((file) => file.size > maxSizeMb * 1024 * 1024);
-  if (oversized) {
-    window.alert(`${oversized.name} lớn hơn giới hạn ${maxSizeMb} MB.`);
-    input.value = '';
-    return;
-  }
-  const folderId = uploadForm.querySelector('[name="folderId"]').value;
-  const uploadButton = uploadForm.querySelector('.upload-button');
-  input.disabled = true;
-  uploadButton.classList.add('disabled');
-  progressBox.hidden = false;
-  let completed = 0;
-  try {
-    for (let index = 0; index < files.length; index += 1) {
-      progressStatus.textContent = `Đang tải ${index + 1}/${files.length}: ${files[index].name}`;
-      await uploadOne(files[index], folderId, index, files.length);
-      completed += 1;
-      const percent = Math.round((completed / files.length) * 100);
-      progressBar.value = percent;
-      progressPercent.textContent = `${percent}%`;
-    }
-    progressStatus.textContent = `Hoàn tất ${completed}/${files.length} ảnh. Đang làm mới…`;
-    window.location.reload();
-  } catch (error) {
-    progressStatus.textContent = `${error.message} Đã hoàn thành ${completed}/${files.length} ảnh.`;
-    progressBox.classList.add('upload-failed');
-    input.disabled = false;
-    uploadButton.classList.remove('disabled');
-    input.value = '';
-  }
-});
-
-const selectAll = document.querySelector('#select-all');
-const checkboxes = [...document.querySelectorAll('.image-checkbox')];
-const batchDownload = document.querySelector('#batch-download');
-const batchDelete = document.querySelector('#batch-delete');
-const batchMove = document.querySelector('#batch-move');
-function updateBatchButton() {
-  const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
-  if (batchDownload) {
-    batchDownload.disabled = selected === 0;
-    batchDownload.textContent = selected ? `↓ Tải ${selected} ảnh (.zip)` : '↓ Tải ảnh đã chọn (.zip)';
-  }
-  if (batchDelete) {
-    batchDelete.disabled = selected === 0;
-    batchDelete.textContent = selected ? `⌫ Xóa ${selected} ảnh` : '⌫ Xóa ảnh đã chọn';
-  }
-  if (batchMove) batchMove.disabled = selected === 0;
-  if (selectAll) selectAll.checked = checkboxes.length > 0 && selected === checkboxes.length;
-}
-if (selectAll) selectAll.addEventListener('change', () => { checkboxes.forEach((checkbox) => { checkbox.checked = selectAll.checked; }); updateBatchButton(); });
-checkboxes.forEach((checkbox) => checkbox.addEventListener('change', updateBatchButton));
-
-if (batchDelete) batchDelete.addEventListener('click', (event) => {
-  const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
-  if (!window.confirm(`Bạn chắc chắn muốn xóa ${selected} ảnh đã chọn? Hành động này không thể hoàn tác.`)) event.preventDefault();
-});
-
-const deleteAll = document.querySelector('.delete-all');
-if (deleteAll) deleteAll.addEventListener('click', (event) => {
-  if (!window.confirm(`Xóa toàn bộ ${checkboxes.length} ảnh trong thư mục hiện tại? Hành động này không thể hoàn tác.`)) event.preventDefault();
-});
-
-const photoCards = [...document.querySelectorAll('.photo-card[draggable="true"]')];
-const folderTargets = [...document.querySelectorAll('.folder-drop-target[data-folder-id]')];
-photoCards.forEach((card) => {
-  card.addEventListener('dragstart', (event) => {
-    const selectedIds = checkboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
-    const ids = selectedIds.includes(card.dataset.imageId) ? selectedIds : [card.dataset.imageId];
-    event.dataTransfer.setData('application/json', JSON.stringify(ids));
-    event.dataTransfer.effectAllowed = 'move';
-    card.classList.add('dragging');
-  });
-  card.addEventListener('dragend', () => card.classList.remove('dragging'));
-});
-
-folderTargets.forEach((folder) => {
-  folder.addEventListener('dragover', (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; folder.classList.add('drag-over'); });
-  folder.addEventListener('dragleave', () => folder.classList.remove('drag-over'));
-  folder.addEventListener('drop', async (event) => {
-    event.preventDefault();
-    folder.classList.remove('drag-over');
-    let ids;
-    try { ids = JSON.parse(event.dataTransfer.getData('application/json')); } catch { return; }
-    if (!ids?.length) return;
+  async function postForm(url, values) {
     const body = new URLSearchParams();
-    ids.forEach((id) => body.append('imageIds', id));
-    body.set('targetFolderId', folder.dataset.folderId);
-    try {
-      const response = await fetch('/images/move', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' }, body });
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.message);
-      window.location.reload();
-    } catch (error) { window.alert(error.message || 'Không thể di chuyển ảnh.'); }
+    body.set('_csrf', csrfToken);
+    Object.entries(values).forEach(([key, value]) => {
+      const list = Array.isArray(value) ? value : [value];
+      list.forEach((item) => body.append(key, item ?? ''));
+    });
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-Token': csrfToken,
+        Accept: 'application/json'
+      },
+      body,
+      credentials: 'same-origin'
+    });
+    const payload = await response.json().catch(() => ({ ok: false, message: 'Phản hồi từ server không hợp lệ.' }));
+    if (!response.ok || !payload.ok) throw new Error(payload.message || 'Không thể hoàn thành thao tác.');
+    return payload;
+  }
+
+  document.querySelectorAll('[data-confirm]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+    });
   });
-});
 
-const previews = [...document.querySelectorAll('.photo-preview')];
-const lightbox = document.querySelector('#lightbox');
-const lightboxImage = document.querySelector('#lightbox-image');
-const lightboxName = document.querySelector('#lightbox-name');
-const lightboxCount = document.querySelector('#lightbox-count');
-const lightboxDownload = document.querySelector('#lightbox-download');
-const lightboxLoader = document.querySelector('#lightbox-loader');
-const previousButton = document.querySelector('#lightbox-prev');
-const nextButton = document.querySelector('#lightbox-next');
-const zoomInButton = document.querySelector('#zoom-in');
-const zoomOutButton = document.querySelector('#zoom-out');
-const zoomLevelButton = document.querySelector('#zoom-level');
-const lightboxStage = document.querySelector('.lightbox-stage');
-let activeImageIndex = 0;
-let zoomLevel = 1;
-let fittedImageWidth = 0;
-let fittedImageHeight = 0;
-let panState = null;
+  document.querySelectorAll('[data-ajax-form]').forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const submit = form.querySelector('button[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': csrfToken, Accept: 'application/json' },
+          body: new FormData(form),
+          credentials: 'same-origin'
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload.message);
+        window.location.reload();
+      } catch (error) {
+        showAlert(error.message || 'Không thể hoàn thành thao tác.', 'error');
+        if (submit) submit.disabled = false;
+      }
+    });
+  });
 
-function setZoom(nextZoom) {
-  zoomLevel = Math.min(4, Math.max(0.5, Math.round(nextZoom * 10) / 10));
-  if (zoomLevel > 1 && fittedImageWidth && fittedImageHeight) {
-    lightboxImage.style.width = `${Math.round(fittedImageWidth * zoomLevel)}px`;
-    lightboxImage.style.height = `${Math.round(fittedImageHeight * zoomLevel)}px`;
-    lightboxImage.style.maxWidth = 'none';
-    lightboxImage.style.maxHeight = 'none';
-    lightboxImage.style.transform = 'scale(1)';
-  } else {
-    lightboxImage.style.width = '';
-    lightboxImage.style.height = '';
-    lightboxImage.style.maxWidth = '';
-    lightboxImage.style.maxHeight = '';
-    lightboxImage.style.transform = `scale(${zoomLevel})`;
+  const searchInput = document.querySelector('[data-search]');
+  if (searchInput) {
+    const items = [...document.querySelectorAll('[data-search-item]')];
+    let timer;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const term = searchInput.value.trim().toLocaleLowerCase('vi');
+        items.forEach((item) => {
+          item.hidden = Boolean(term) && !item.dataset.searchItem.toLocaleLowerCase('vi').includes(term);
+        });
+      }, 80);
+    });
   }
-  zoomLevelButton.textContent = `${Math.round(zoomLevel * 100)}%`;
-  lightboxStage.classList.toggle('is-zoomed', zoomLevel > 1);
-  if (zoomLevel > 1) {
-    lightboxStage.scrollLeft = Math.max(0, (lightboxStage.scrollWidth - lightboxStage.clientWidth) / 2);
-    lightboxStage.scrollTop = Math.max(0, (lightboxStage.scrollHeight - lightboxStage.clientHeight) / 2);
-  } else {
-    lightboxStage.scrollTop = 0;
-    lightboxStage.scrollLeft = 0;
+
+  const checkboxes = [...document.querySelectorAll('[data-image-select]')];
+  const toolbar = document.querySelector('[data-selection-toolbar]');
+  const selectedCount = document.querySelector('[data-selected-count]');
+  const selectAllButton = document.querySelector('[data-select-all]');
+
+  function selectedIds() {
+    return checkboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
   }
-}
 
-function showLightboxImage(index) {
-  if (!previews.length) return;
-  activeImageIndex = (index + previews.length) % previews.length;
-  const preview = previews[activeImageIndex];
-  const imageId = preview.dataset.imageId;
-  const imageName = preview.dataset.imageName;
-  fittedImageWidth = 0;
-  fittedImageHeight = 0;
-  setZoom(1);
-  lightbox.classList.add('loading');
-  lightboxLoader.hidden = false;
-  lightboxImage.classList.remove('loaded');
-  lightboxImage.alt = imageName;
-  lightboxName.textContent = imageName;
-  lightboxCount.textContent = `${activeImageIndex + 1} / ${previews.length}`;
-  lightboxDownload.href = `/images/${imageId}/download`;
-  lightboxImage.src = `/images/${imageId}`;
-  previousButton.hidden = previews.length < 2;
-  nextButton.hidden = previews.length < 2;
-}
+  function updateSelection() {
+    const selected = selectedIds();
+    if (toolbar) toolbar.hidden = selected.length === 0;
+    if (selectedCount) selectedCount.textContent = String(selected.length);
+    checkboxes.forEach((checkbox) => checkbox.closest('.image-card')?.classList.toggle('is-selected', checkbox.checked));
+    if (selectAllButton) selectAllButton.textContent = selected.length === checkboxes.length && checkboxes.length ? 'Bỏ chọn' : 'Chọn tất cả';
+  }
 
-function openLightbox(index) {
-  showLightboxImage(index);
-  lightbox.classList.add('open');
-  lightbox.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('lightbox-open');
-}
+  checkboxes.forEach((checkbox) => checkbox.addEventListener('change', updateSelection));
+  selectAllButton?.addEventListener('click', () => {
+    const visible = checkboxes.filter((checkbox) => !checkbox.closest('.image-card')?.hidden);
+    const shouldSelect = visible.some((checkbox) => !checkbox.checked);
+    visible.forEach((checkbox) => { checkbox.checked = shouldSelect; });
+    updateSelection();
+  });
 
-function closeLightbox() {
-  stopPanning();
-  lightbox.classList.remove('open');
-  lightbox.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('lightbox-open');
-  window.setTimeout(() => { if (!lightbox.classList.contains('open')) lightboxImage.src = ''; }, 250);
-}
+  document.querySelector('[data-move-selected]')?.addEventListener('click', async () => {
+    const ids = selectedIds();
+    const targetFolderId = document.querySelector('[data-move-target]')?.value || '';
+    if (!ids.length) return;
+    try {
+      const payload = await postForm('/images/move', { imageIds: ids, targetFolderId, currentFolderId: folderId });
+      showAlert(payload.message);
+      ids.forEach((id) => document.querySelector(`[data-image-id="${CSS.escape(id)}"]`)?.remove());
+      checkboxes.splice(0, checkboxes.length, ...document.querySelectorAll('[data-image-select]'));
+      updateSelection();
+    } catch (error) {
+      showAlert(error.message, 'error');
+    }
+  });
 
-previews.forEach((preview, index) => preview.addEventListener('click', (event) => { event.preventDefault(); openLightbox(index); }));
-lightboxImage?.addEventListener('load', () => {
-  lightbox.classList.remove('loading');
-  lightboxLoader.hidden = true;
-  lightboxImage.classList.add('loaded');
-  lightboxImage.style.transform = 'scale(1)';
-  fittedImageWidth = lightboxImage.clientWidth;
-  fittedImageHeight = lightboxImage.clientHeight;
-});
-document.querySelectorAll('[data-lightbox-close]').forEach((element) => element.addEventListener('click', closeLightbox));
-previousButton?.addEventListener('click', () => showLightboxImage(activeImageIndex - 1));
-nextButton?.addEventListener('click', () => showLightboxImage(activeImageIndex + 1));
-zoomInButton?.addEventListener('click', () => setZoom(zoomLevel + 0.25));
-zoomOutButton?.addEventListener('click', () => setZoom(zoomLevel - 0.25));
-zoomLevelButton?.addEventListener('click', () => setZoom(1));
-lightboxStage?.addEventListener('dblclick', () => setZoom(zoomLevel === 1 ? 2 : 1));
-lightboxStage?.addEventListener('wheel', (event) => {
-  if (!lightbox?.classList.contains('open')) return;
-  event.preventDefault();
-  setZoom(zoomLevel + (event.deltaY < 0 ? 0.25 : -0.25));
-}, { passive: false });
+  document.querySelector('[data-delete-selected]')?.addEventListener('click', async () => {
+    const ids = selectedIds();
+    if (!ids.length || !window.confirm(`Xóa vĩnh viễn ${ids.length} ảnh đã chọn?`)) return;
+    try {
+      const payload = await postForm('/images/delete-batch', { imageIds: ids, folderId });
+      showAlert(payload.message);
+      ids.forEach((id) => document.querySelector(`[data-image-id="${CSS.escape(id)}"]`)?.remove());
+      checkboxes.splice(0, checkboxes.length, ...document.querySelectorAll('[data-image-select]'));
+      updateSelection();
+    } catch (error) {
+      showAlert(error.message, 'error');
+    }
+  });
 
-lightboxStage?.addEventListener('pointerdown', (event) => {
-  if (zoomLevel <= 1 || (event.pointerType === 'mouse' && event.button !== 0)) return;
-  event.preventDefault();
-  panState = {
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-    scrollLeft: lightboxStage.scrollLeft,
-    scrollTop: lightboxStage.scrollTop
-  };
-  lightboxStage.setPointerCapture(event.pointerId);
-  lightboxStage.classList.add('is-panning');
-});
+  document.querySelector('[data-download-selected]')?.addEventListener('click', () => {
+    const ids = selectedIds();
+    if (!ids.length) return;
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/images/download-batch';
+    form.hidden = true;
+    const entries = [['_csrf', csrfToken], ...ids.map((id) => ['imageIds', id])];
+    entries.forEach(([name, value]) => {
+      const input = document.createElement('input');
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(() => form.remove(), 1000);
+  });
 
-lightboxStage?.addEventListener('pointermove', (event) => {
-  if (!panState || panState.pointerId !== event.pointerId) return;
-  event.preventDefault();
-  lightboxStage.scrollLeft = panState.scrollLeft - (event.clientX - panState.startX);
-  lightboxStage.scrollTop = panState.scrollTop - (event.clientY - panState.startY);
-});
+  const uploadDialog = document.querySelector('[data-upload-dialog]');
+  const fileInput = document.querySelector('[data-file-input]');
+  const dropZone = document.querySelector('[data-drop-zone]');
+  const startUpload = document.querySelector('[data-start-upload]');
+  const cancelUpload = document.querySelector('[data-cancel-upload]');
+  const summary = document.querySelector('[data-upload-summary]');
+  const fileName = document.querySelector('[data-upload-file-name]');
+  const progress = document.querySelector('[data-upload-progress]');
+  const progressText = document.querySelector('[data-upload-progress-text]');
+  const uploadStatus = document.querySelector('[data-upload-status]');
+  let pendingFiles = [];
+  let activeXhr = null;
+  let cancelled = false;
 
-function stopPanning(event) {
-  if (!panState || (event && panState.pointerId !== event.pointerId)) return;
-  if (event && lightboxStage.hasPointerCapture(event.pointerId)) lightboxStage.releasePointerCapture(event.pointerId);
-  panState = null;
-  lightboxStage.classList.remove('is-panning');
-}
+  function openUpload(files = []) {
+    if (!uploadDialog) return;
+    if (!uploadDialog.open) uploadDialog.showModal();
+    if (files.length) setPendingFiles(files);
+  }
 
-lightboxStage?.addEventListener('pointerup', stopPanning);
-lightboxStage?.addEventListener('pointercancel', stopPanning);
-lightboxStage?.addEventListener('lostpointercapture', () => stopPanning());
-document.addEventListener('keydown', (event) => {
-  if (!lightbox?.classList.contains('open')) return;
-  if (event.key === 'Escape') closeLightbox();
-  if (event.key === 'ArrowLeft') showLightboxImage(activeImageIndex - 1);
-  if (event.key === 'ArrowRight') showLightboxImage(activeImageIndex + 1);
-});
+  function setPendingFiles(files) {
+    pendingFiles = [...files].filter((file) => file.type.startsWith('image/'));
+    const oversized = pendingFiles.find((file) => file.size > maxFileSize);
+    if (oversized) {
+      showAlert(`${oversized.name} vượt giới hạn dung lượng.`, 'error');
+      pendingFiles = pendingFiles.filter((file) => file.size <= maxFileSize);
+    }
+    if (startUpload) startUpload.disabled = pendingFiles.length === 0;
+    if (summary) summary.hidden = pendingFiles.length === 0;
+    if (fileName) fileName.textContent = pendingFiles.length ? `${pendingFiles.length} ảnh đã chọn` : 'Chưa chọn ảnh';
+    if (uploadStatus) uploadStatus.textContent = pendingFiles.length ? `Tổng dung lượng ${(pendingFiles.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024).toFixed(2)} MB` : '';
+    if (progress) progress.value = 0;
+    if (progressText) progressText.textContent = '0%';
+  }
+
+  document.querySelectorAll('[data-open-upload]').forEach((button) => button.addEventListener('click', () => openUpload()));
+  dropZone?.addEventListener('click', () => fileInput?.click());
+  dropZone?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInput?.click(); }
+  });
+  fileInput?.addEventListener('change', () => setPendingFiles(fileInput.files));
+  ['dragenter', 'dragover'].forEach((type) => dropZone?.addEventListener(type, (event) => {
+    event.preventDefault();
+    dropZone.classList.add('is-dragging');
+  }));
+  ['dragleave', 'drop'].forEach((type) => dropZone?.addEventListener(type, (event) => {
+    event.preventDefault();
+    dropZone.classList.remove('is-dragging');
+  }));
+  dropZone?.addEventListener('drop', (event) => setPendingFiles(event.dataTransfer.files));
+
+  document.addEventListener('dragover', (event) => event.preventDefault());
+  document.addEventListener('drop', (event) => {
+    if (!uploadDialog || dropZone?.contains(event.target)) return;
+    event.preventDefault();
+    openUpload(event.dataTransfer.files);
+  });
+
+  function uploadOne(file, index, total) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      activeXhr = xhr;
+      xhr.open('POST', '/images');
+      xhr.responseType = 'json';
+      xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      xhr.setRequestHeader('X-Upload-Queue', 'sequential');
+      xhr.upload.addEventListener('progress', (event) => {
+        if (!event.lengthComputable) return;
+        const current = event.loaded / event.total;
+        const overall = Math.round(((index + current) / total) * 100);
+        if (progress) progress.value = overall;
+        if (progressText) progressText.textContent = `${overall}%`;
+      });
+      xhr.addEventListener('load', () => {
+        activeXhr = null;
+        const payload = xhr.response || {};
+        if (xhr.status >= 200 && xhr.status < 300 && payload.ok) resolve(payload);
+        else reject(new Error(payload.message || `Không thể tải ${file.name}.`));
+      });
+      xhr.addEventListener('error', () => reject(new Error(`Mất kết nối khi tải ${file.name}.`)));
+      xhr.addEventListener('abort', () => reject(new DOMException('Đã hủy tải lên.', 'AbortError')));
+      const formData = new FormData();
+      formData.append('image', file, file.name);
+      if (folderId) formData.append('folderId', folderId);
+      xhr.send(formData);
+    });
+  }
+
+  startUpload?.addEventListener('click', async () => {
+    if (!pendingFiles.length) return;
+    cancelled = false;
+    startUpload.disabled = true;
+    if (cancelUpload) cancelUpload.textContent = 'Hủy tải';
+    let completed = 0;
+    try {
+      for (let index = 0; index < pendingFiles.length; index += 1) {
+        if (cancelled) break;
+        const file = pendingFiles[index];
+        if (fileName) fileName.textContent = file.name;
+        if (uploadStatus) uploadStatus.textContent = `Đang tải ảnh ${index + 1}/${pendingFiles.length}`;
+        await uploadOne(file, index, pendingFiles.length);
+        completed += 1;
+      }
+      if (!cancelled) {
+        if (progress) progress.value = 100;
+        if (progressText) progressText.textContent = '100%';
+        if (uploadStatus) uploadStatus.textContent = `Đã tải thành công ${completed} ảnh. Đang làm mới thư viện…`;
+        setTimeout(() => window.location.reload(), 500);
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') showAlert(error.message, 'error');
+      if (uploadStatus) uploadStatus.textContent = error.message;
+      startUpload.disabled = false;
+    }
+  });
+
+  cancelUpload?.addEventListener('click', () => {
+    if (activeXhr) {
+      cancelled = true;
+      activeXhr.abort();
+      activeXhr = null;
+    } else {
+      uploadDialog?.close();
+      setPendingFiles([]);
+    }
+  });
+  uploadDialog?.addEventListener('close', () => { if (!activeXhr) setPendingFiles([]); });
+
+  const lightbox = document.querySelector('[data-lightbox]');
+  const lightboxImage = document.querySelector('[data-lightbox-image]');
+  const lightboxTitle = document.querySelector('[data-lightbox-title]');
+  const lightboxDownload = document.querySelector('[data-lightbox-download]');
+  document.querySelectorAll('[data-lightbox-src]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!lightbox || !lightboxImage) return;
+      lightboxImage.src = button.dataset.lightboxSrc;
+      lightboxImage.alt = button.dataset.lightboxName || '';
+      if (lightboxTitle) lightboxTitle.textContent = button.dataset.lightboxName || '';
+      if (lightboxDownload) lightboxDownload.href = `${button.dataset.lightboxSrc}/download`;
+      lightbox.showModal();
+    });
+  });
+  lightbox?.addEventListener('close', () => { if (lightboxImage) lightboxImage.src = ''; });
+  [uploadDialog, lightbox].forEach((dialog) => dialog?.addEventListener('click', (event) => {
+    const rect = dialog.getBoundingClientRect();
+    const outside = event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
+    if (outside) dialog.close();
+  }));
+
+  updateSelection();
+})();

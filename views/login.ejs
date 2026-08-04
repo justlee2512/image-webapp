@@ -1,31 +1,54 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Đăng nhập · Richard Le Drive</title><link rel="stylesheet" href="/styles.css?<%= assetVersion %>"><script src="/login.js?<%= assetVersion %>" defer></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Đăng nhập · Richard Le Image Drive</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=<%= assetVersion %>">
 </head>
 <body class="auth-page">
   <main class="auth-shell">
-    <section class="auth-story">
-      <div class="marquee-banner compact" aria-label="Thông báo"><span>✨ Chào mừng bạn đến với Richard Le Drive · Bảo mật · Nhanh · Thẩm mỹ</span></div>
-      <div class="intro-popups auth-intro" aria-label="Thông tin giới thiệu">
-        <div class="intro-popup"><div class="intro-track"><span>📸 Kho ảnh riêng tư, hiện đại và luôn dễ tìm lại</span></div></div>
-        <div class="intro-popup"><div class="intro-track"><span>⚡ Tải, chia sẻ và xem lại khoảnh khắc một cách mượt mà</span></div></div>
+    <section class="auth-brand" aria-label="Giới thiệu">
+      <div class="brand-mark" aria-hidden="true">RL</div>
+      <p class="eyebrow">PRIVATE IMAGE DRIVE</p>
+      <h1>Lưu ảnh riêng tư.<br>Truy cập nhanh chóng.</h1>
+      <p>Thư viện ảnh cá nhân chạy trên PostgreSQL, tối ưu cho desktop, điện thoại và nhiều replica Kubernetes.</p>
+      <div class="security-pills" aria-label="Tính năng bảo mật">
+        <span>Session bảo mật</span><span>Ảnh riêng tư</span><span>HTTPS-ready</span>
       </div>
-      <a class="brand brand-light" href="/"><span class="brand-mark">R</span><span>Richard Le</span></a>
-      <div><p class="eyebrow">KHÔNG GIAN ẢNH CỦA BẠN</p><h1>Giữ lại những khoảnh khắc đáng nhớ.</h1><p class="story-copy">Một nơi riêng tư, thanh lịch để lưu giữ và xem lại mọi bức ảnh bạn yêu thích.</p></div>
-      <p class="story-foot">Lưu trữ an toàn · Xem ở mọi nơi</p>
     </section>
-    <section class="auth-panel">
-      <form class="auth-card" id="login-form" method="post" action="/login">
-        <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
-        <p class="eyebrow ink">CHÀO MỪNG TRỞ LẠI</p><h2>Đăng nhập</h2><p class="muted">Tiếp tục đến thư viện ảnh của bạn.</p>
-        <% if (error) { %><div class="alert error"><%= error %></div><% } %>
-        <label>Tên tài khoản hoặc email<input name="identity" value="<%= form.identity || '' %>" autocomplete="username" autofocus required placeholder="ban@example.com"></label>
-        <label>Mật khẩu<input type="password" name="password" autocomplete="current-password" required placeholder="••••••••"></label>
-        <button class="button primary wide" type="submit">Đăng nhập <span>→</span></button>
-        <p class="switch">Chưa có tài khoản? <a href="/register">Tạo tài khoản</a></p>
+
+    <section class="auth-card">
+      <div>
+        <p class="eyebrow">CHÀO MỪNG TRỞ LẠI</p>
+        <h2>Đăng nhập</h2>
+        <p class="muted">Dùng tên tài khoản hoặc email của bạn.</p>
+      </div>
+
+      <% if (error) { %>
+        <div class="alert alert-error" role="alert"><%= error %></div>
+      <% } %>
+
+      <form method="post" action="/login" class="stack-form" data-busy-form>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label>
+          <span>Tài khoản hoặc email</span>
+          <input name="identity" value="<%= form.identity || '' %>" autocomplete="username" required autofocus maxlength="255">
+        </label>
+        <label>
+          <span>Mật khẩu</span>
+          <div class="password-field">
+            <input id="login-password" type="password" name="password" autocomplete="current-password" required maxlength="128">
+            <button type="button" class="icon-button password-toggle" data-password-target="login-password" aria-label="Hiện mật khẩu">Hiện</button>
+          </div>
+        </label>
+        <button class="button button-primary button-large" type="submit">Đăng nhập</button>
       </form>
+
+      <p class="auth-switch">Chưa có tài khoản? <a href="/register">Tạo tài khoản</a></p>
     </section>
   </main>
-</body></html>
+  <script src="/assets/auth.js?v=<%= assetVersion %>" defer></script>
+</body>
+</html>
