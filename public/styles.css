@@ -523,6 +523,14 @@ select:focus-visible {
   backdrop-filter: blur(12px);
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .user-menu {
   min-width: 0;
   display: flex;
@@ -571,6 +579,12 @@ select:focus-visible {
 .link-button:hover {
   color: var(--forest);
   background: var(--sage);
+}
+
+.admin-link {
+  min-height: 38px;
+  padding: 10px 14px;
+  border-radius: 999px;
 }
 
 /* ---------- Drive layout ---------- */
