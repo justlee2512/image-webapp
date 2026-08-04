@@ -1,6 +1,62 @@
 const input = document.querySelector('#image-input');
 const uploadForm = document.querySelector('.upload-form');
 const progressBox = document.querySelector('#upload-progress');
+const toastStack = document.querySelector('#toast-stack');
+
+function showToast(message, type = 'error') {
+  if (!message || !toastStack) return;
+  const toast = document.createElement('div');
+  toast.className = `toast ${type} is-visible`;
+  toast.textContent = message;
+  toastStack.appendChild(toast);
+  window.setTimeout(() => {
+    toast.classList.add('is-hiding');
+    window.setTimeout(() => toast.remove(), 220);
+  }, 3200);
+}
+
+function showInlineAlerts() {
+  document.querySelectorAll('.alert').forEach((alert) => {
+    if (!alert.classList.contains('toast')) {
+      alert.classList.add('toast');
+      alert.classList.add('is-visible');
+      window.setTimeout(() => {
+        alert.classList.add('is-hiding');
+        window.setTimeout(() => alert.remove(), 220);
+      }, 3200);
+    }
+  });
+}
+
+showInlineAlerts();
+
+async function submitAjaxForm(event) {
+  const form = event.currentTarget;
+  const submitter = event.submitter;
+  const actionUrl = submitter?.getAttribute('formaction') || form.getAttribute('action') || form.action;
+  const formData = new FormData(form);
+  const body = new URLSearchParams(formData);
+  try {
+    const response = await fetch(actionUrl, {
+      method: form.method || 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+      body
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.ok) throw new Error(result?.message || 'Không thể thực hiện thao tác.');
+    showToast(result.message || 'Thao tác thành công.', 'success');
+    window.setTimeout(() => window.location.reload(), 300);
+  } catch (error) {
+    showToast(error.message || 'Không thể thực hiện thao tác.', 'error');
+  }
+}
+
+document.querySelectorAll('form[data-ajax-form]').forEach((form) => {
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    submitAjaxForm(event);
+  });
+});
 const progressBar = document.querySelector('#upload-bar');
 const progressStatus = document.querySelector('#upload-status');
 const progressPercent = document.querySelector('#upload-percent');

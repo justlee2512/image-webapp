@@ -194,6 +194,47 @@ select:focus-visible {
   animation: slide-in-up 0.25s ease;
 }
 
+.toast-stack {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  min-width: min(320px, calc(100vw - 32px));
+  padding: 13px 16px;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(154, 62, 52, 0.98), rgba(124, 41, 34, 0.98));
+  box-shadow: 0 16px 34px rgba(25, 45, 36, 0.16);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: auto;
+}
+
+.toast.success {
+  background: linear-gradient(135deg, rgba(43, 97, 66, 0.98), rgba(34, 84, 58, 0.98));
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast.is-hiding {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
 .alert.error {
   color: #7e2e28;
   background: #fde8e7;
