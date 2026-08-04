@@ -1,1 +1,111 @@
 
+name: CI - Build and Publish Image
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: image-webapp-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  GITOPS_REPOSITORY: justlee2512/image-webapp-gitops
+  GITOPS_MANIFEST: apps/image-webapp/overlays/production/kustomization.yaml
+
+jobs:
+  validate:
+    name: Validate source
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check JavaScript syntax
+        run: |
+          find src public -type f -name '*.js' -print0 \
+            | xargs -0 -n1 node --check
+
+  container:
+    name: Build container
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build or publish image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+  update-gitops:
+    name: Update GitOps image tag
+    if: github.event_name == 'push'
+    needs: container
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GitOps repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPOSITORY }}
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+
+      - name: Update immutable image tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd gitops
+
+          sed -i "s#newTag: .*#newTag: sha-${GITHUB_SHA}#" "${GITOPS_MANIFEST}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${GITOPS_MANIFEST}"
+
+          if git diff --cached --quiet; then
+            echo "GitOps image tag is already current."
+            exit 0
+          fi
+
+          git commit -m "deploy(image-webapp): sha-${GITHUB_SHA}"
+          git push
