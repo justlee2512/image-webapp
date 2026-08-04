@@ -5,34 +5,43 @@
     button.addEventListener('click', () => {
       const input = document.getElementById(button.dataset.passwordTarget);
       if (!input) return;
-      const visible = input.type === 'text';
-      input.type = visible ? 'password' : 'text';
-      button.textContent = visible ? 'Hiện' : 'Ẩn';
-      button.setAttribute('aria-label', visible ? 'Hiện mật khẩu' : 'Ẩn mật khẩu');
+      const willShow = input.type === 'password';
+      input.type = willShow ? 'text' : 'password';
+      button.textContent = willShow ? 'Ẩn' : 'Hiện';
+      button.setAttribute('aria-label', willShow ? 'Ẩn mật khẩu' : 'Hiện mật khẩu');
+      button.setAttribute('aria-pressed', willShow ? 'true' : 'false');
     });
   });
 
-  document.querySelectorAll('[data-password-meter]').forEach((meter) => {
-    const input = document.getElementById(meter.dataset.passwordMeter);
-    if (!input) return;
-    const update = () => {
-      const value = input.value;
-      const score = [value.length >= 10, /[a-z]/.test(value) && /[A-Z]/.test(value), /\d/.test(value), /[^A-Za-z0-9]/.test(value)].filter(Boolean).length;
-      meter.value = score;
-    };
-    input.addEventListener('input', update);
-    update();
-  });
+  const password = document.querySelector('#register-password');
+  const confirmPassword = document.querySelector('#register-password-confirm');
+  const matchMessage = document.querySelector('#password-match');
+  function updateMatch() {
+    if (!password || !confirmPassword || !matchMessage) return;
+    if (!confirmPassword.value) {
+      matchMessage.textContent = '';
+      confirmPassword.setCustomValidity('');
+      return;
+    }
+    const matches = password.value === confirmPassword.value;
+    matchMessage.textContent = matches ? 'Mật khẩu khớp.' : 'Mật khẩu nhập lại chưa khớp.';
+    matchMessage.classList.toggle('ok', matches);
+    matchMessage.classList.toggle('error', !matches);
+    confirmPassword.setCustomValidity(matches ? '' : 'Mật khẩu nhập lại chưa khớp.');
+  }
+  password?.addEventListener('input', updateMatch);
+  confirmPassword?.addEventListener('input', updateMatch);
 
-  document.querySelectorAll('[data-confirm]').forEach((form) => {
+  document.querySelectorAll('form[data-confirm]').forEach((form) => {
     form.addEventListener('submit', (event) => {
-      if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+      if (!window.confirm(form.dataset.confirm || 'Bạn có chắc muốn thực hiện thao tác này?')) event.preventDefault();
     });
   });
 
-  document.querySelectorAll('[data-busy-form]').forEach((form) => {
-    form.addEventListener('submit', () => {
-      const button = form.querySelector('button[type="submit"]');
+  document.querySelectorAll('form[data-busy-form]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!form.checkValidity()) return;
+      const button = event.submitter || form.querySelector('button[type="submit"]');
       if (!button) return;
       button.disabled = true;
       button.dataset.originalText = button.textContent;

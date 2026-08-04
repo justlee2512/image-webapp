@@ -1,58 +1,38 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>Tạo tài khoản · Richard Le Image Drive</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Tạo tài khoản · Richard Le Drive</title>
   <link rel="stylesheet" href="/assets/styles.css?v=<%= assetVersion %>">
+  <script src="/assets/auth.js?v=<%= assetVersion %>" defer></script>
 </head>
 <body class="auth-page">
   <main class="auth-shell">
-    <section class="auth-brand" aria-label="Giới thiệu">
-      <div class="brand-mark" aria-hidden="true">RL</div>
-      <p class="eyebrow">PRIVATE IMAGE DRIVE</p>
-      <h1>Tạo không gian ảnh<br>của riêng bạn.</h1>
-      <p>Mỗi tài khoản có thư viện độc lập, có thể tạo folder và chia sẻ folder chỉ đọc cho người dùng khác.</p>
-      <div class="security-pills"><span>Tối đa <%= maxAccounts %> tài khoản</span><span>Chống giả mạo request</span></div>
-    </section>
-
-    <section class="auth-card">
-      <div>
-        <p class="eyebrow">BẮT ĐẦU</p>
-        <h2>Tạo tài khoản</h2>
-        <p class="muted">Mật khẩu tối thiểu 10 ký tự và dùng ít nhất 3 nhóm ký tự.</p>
+    <section class="auth-story register-story">
+      <div class="marquee-banner compact" aria-label="Thông báo"><span>✨ Tạo tài khoản để lưu trữ ảnh riêng tư · Giao diện hiện đại · Dễ dùng</span></div>
+      <div class="intro-popups auth-intro" aria-label="Thông tin giới thiệu">
+        <div class="intro-popup"><div class="intro-track"><span>🌿 Bắt đầu hành trình lưu giữ khoảnh khắc với một không gian thư viện đẹp mắt</span></div></div>
+        <div class="intro-popup"><div class="intro-track"><span>🛡️ Bảo vệ ảnh của bạn bằng tài khoản riêng và trải nghiệm mượt mà mỗi lần mở</span></div></div>
       </div>
-
-      <% if (error) { %><div class="alert alert-error" role="alert"><%= error %></div><% } %>
-
-      <form method="post" action="/register" class="stack-form" data-busy-form>
+      <a class="brand brand-light" href="/"><span class="brand-mark">R</span><span>Richard Le</span></a>
+      <div><p class="eyebrow">THƯ VIỆN CÁ NHÂN</p><h1>Ảnh của bạn.<br>Không gian của bạn.</h1><p class="story-copy">Bắt đầu xây dựng bộ sưu tập riêng, được bảo vệ bằng tài khoản của chính bạn.</p></div>
+      <p class="story-foot">Chỉ dành cho <%= maxAccounts %> thành viên đầu tiên</p>
+    </section>
+    <section class="auth-panel">
+      <form class="auth-card" method="post" action="/register" data-busy-form>
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <label>
-          <span>Tên tài khoản</span>
-          <input name="username" value="<%= form.username || '' %>" autocomplete="username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+">
-        </label>
-        <label>
-          <span>Email</span>
-          <input type="email" name="email" value="<%= form.email || '' %>" autocomplete="email" required maxlength="255">
-        </label>
-        <label>
-          <span>Mật khẩu</span>
-          <div class="password-field">
-            <input id="register-password" type="password" name="password" autocomplete="new-password" required minlength="10" maxlength="128">
-            <button type="button" class="icon-button password-toggle" data-password-target="register-password" aria-label="Hiện mật khẩu">Hiện</button>
-          </div>
-          <meter class="password-meter" min="0" max="4" value="0" data-password-meter="register-password"></meter>
-        </label>
-        <label>
-          <span>Nhập lại mật khẩu</span>
-          <input type="password" name="passwordConfirm" autocomplete="new-password" required minlength="10" maxlength="128">
-        </label>
-        <button class="button button-primary button-large" type="submit">Tạo tài khoản</button>
+        <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
+        <p class="eyebrow ink">BẮT ĐẦU NGAY</p><h2>Tạo tài khoản</h2><p class="muted">Hệ thống giới hạn tối đa <%= maxAccounts %> tài khoản.</p>
+        <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+        <label>Tên tài khoản<input name="username" value="<%= form.username || '' %>" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" autocomplete="username" required placeholder="nguyen_an"></label>
+        <label>Email<input type="email" name="email" value="<%= form.email || '' %>" autocomplete="email" required maxlength="255" placeholder="ban@example.com"></label>
+        <label>Mật khẩu<div class="password-field"><input id="register-password" type="password" name="password" minlength="10" maxlength="128" autocomplete="new-password" required placeholder="Tối thiểu 10 ký tự"><button class="password-toggle" type="button" data-password-target="register-password" aria-label="Hiện mật khẩu">Hiện</button></div></label>
+        <label>Nhập lại mật khẩu<div class="password-field"><input id="register-password-confirm" type="password" name="passwordConfirm" minlength="10" maxlength="128" autocomplete="new-password" required placeholder="Nhập lại mật khẩu"></div><small class="password-match" id="password-match" aria-live="polite"></small></label>
+        <button class="button primary wide" type="submit">Tạo tài khoản <span>→</span></button>
+        <p class="switch">Đã có tài khoản? <a href="/login">Đăng nhập</a></p>
       </form>
-      <p class="auth-switch">Đã có tài khoản? <a href="/login">Đăng nhập</a></p>
     </section>
   </main>
-  <script src="/assets/auth.js?v=<%= assetVersion %>" defer></script>
 </body>
 </html>

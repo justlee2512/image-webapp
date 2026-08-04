@@ -1,82 +1,64 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>Quản lý tài khoản · Image Drive</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Quản trị tài khoản · Richard Le Drive</title>
   <link rel="stylesheet" href="/assets/styles.css?v=<%= assetVersion %>">
+  <script src="/assets/auth.js?v=<%= assetVersion %>" defer></script>
 </head>
-<body>
-  <header class="topbar">
-    <a class="wordmark" href="/drive"><span class="brand-mark brand-mark-small">RL</span><span>Image Drive</span></a>
-    <nav class="top-actions">
-      <a class="button button-ghost" href="/drive">Về thư viện</a>
-      <form method="post" action="/logout">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button class="button button-ghost" type="submit">Đăng xuất</button>
-      </form>
-    </nav>
-  </header>
+<body class="auth-page">
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
+  <main class="auth-shell admin-shell">
+    <section class="auth-panel">
+      <div class="auth-card admin-card">
+        <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
+        <p class="eyebrow ink">QUẢN TRỊ</p>
+        <h2>Quản lý tài khoản</h2>
+        <p class="muted">Admin có thể tạo tài khoản mới, xóa người dùng và đổi mật khẩu.</p>
+        <% if (error) { %><div class="alert error"><%= error %></div><% } %>
+        <% if (success) { %><div class="alert success"><%= success %></div><% } %>
 
-  <main class="page-shell admin-shell">
-    <div class="page-heading">
-      <div><p class="eyebrow">QUẢN TRỊ</p><h1>Quản lý tài khoản</h1><p class="muted"><%= users.length %> tài khoản · giới hạn đăng ký công khai <%= maxAccounts %></p></div>
-    </div>
+        <form class="admin-form" method="post" action="/admin/users" data-busy-form>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <h3>Tạo tài khoản mới</h3>
+          <label>Tên tài khoản<input name="username" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" required placeholder="newuser"></label>
+          <label>Email<input type="email" name="email" maxlength="255" required placeholder="newuser@example.com"></label>
+          <label>Mật khẩu<input type="password" name="password" minlength="10" maxlength="128" autocomplete="new-password" required placeholder="Tối thiểu 10 ký tự"></label>
+          <label>Nhập lại mật khẩu<input type="password" name="passwordConfirm" minlength="10" maxlength="128" autocomplete="new-password" required placeholder="Nhập lại mật khẩu"></label>
+          <button class="button primary wide" type="submit">Tạo tài khoản</button>
+        </form>
 
-    <% if (error) { %><div class="alert alert-error" role="alert"><%= error %></div><% } %>
-    <% if (success) { %><div class="alert alert-success" role="status"><%= success %></div><% } %>
-
-    <section class="panel">
-      <div class="panel-heading"><div><h2>Tạo tài khoản</h2><p class="muted">Tài khoản do admin tạo không bị giới hạn bởi MAX_ACCOUNTS.</p></div></div>
-      <form method="post" action="/admin/users" class="admin-create-grid" data-busy-form>
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <label><span>Tên tài khoản</span><input name="username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+"></label>
-        <label><span>Email</span><input type="email" name="email" required maxlength="255"></label>
-        <label><span>Mật khẩu</span><input type="password" name="password" required minlength="10" maxlength="128" autocomplete="new-password"></label>
-        <label><span>Nhập lại</span><input type="password" name="passwordConfirm" required minlength="10" maxlength="128" autocomplete="new-password"></label>
-        <button class="button button-primary" type="submit">Tạo tài khoản</button>
-      </form>
-    </section>
-
-    <section class="panel">
-      <div class="panel-heading"><h2>Danh sách người dùng</h2></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Tài khoản</th><th>Email</th><th>Vai trò</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead>
-          <tbody>
+        <div class="user-list">
+          <h3>Danh sách người dùng</h3>
           <% users.forEach((account) => { %>
-            <tr>
-              <td><strong><%= account.username %></strong><% if (String(account.id) === String(user.id)) { %> <span class="badge">Bạn</span><% } %></td>
-              <td><%= account.email %></td>
-              <td><span class="badge <%= account.is_admin ? 'badge-accent' : '' %>"><%= account.is_admin ? 'Admin' : 'User' %></span></td>
-              <td><%= new Date(account.created_at).toLocaleString('vi-VN') %></td>
-              <td>
-                <div class="row-actions">
-                  <details class="popover-details">
-                    <summary class="button button-small button-ghost">Đổi mật khẩu</summary>
-                    <form method="post" action="/admin/users/<%= account.id %>/reset-password" class="popover-card stack-form" data-busy-form>
-                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <label><span>Mật khẩu mới</span><input type="password" name="newPassword" required minlength="10" maxlength="128"></label>
-                      <label><span>Nhập lại</span><input type="password" name="newPasswordConfirm" required minlength="10" maxlength="128"></label>
-                      <button class="button button-primary button-small" type="submit">Xác nhận</button>
-                    </form>
-                  </details>
-                  <% if (String(account.id) !== String(user.id)) { %>
-                    <form method="post" action="/admin/users/<%= account.id %>/delete" data-confirm="Xóa tài khoản <%= account.username %> và toàn bộ ảnh của họ?">
-                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <button class="button button-small button-danger-ghost" type="submit">Xóa</button>
-                    </form>
-                  <% } %>
-                </div>
-              </td>
-            </tr>
+            <div class="user-row <%= account.is_admin ? 'is-admin' : '' %>">
+              <div>
+                <strong><%= account.username %></strong>
+                <% if (String(account.id) === String(user.id)) { %><span class="badge">Bạn</span><% } %>
+                <% if (account.is_admin) { %><span class="badge admin">Admin</span><% } %>
+                <small><%= account.email %></small>
+              </div>
+              <div class="user-actions">
+                <form method="post" action="/admin/users/<%= account.id %>/reset-password" data-busy-form>
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="password" name="newPassword" minlength="10" maxlength="128" placeholder="Mật khẩu mới" required>
+                  <input type="password" name="newPasswordConfirm" minlength="10" maxlength="128" placeholder="Nhập lại" required>
+                  <button class="button outline" type="submit">Đổi mật khẩu</button>
+                </form>
+                <% if (String(account.id) !== String(user.id)) { %>
+                  <form method="post" action="/admin/users/<%= account.id %>/delete" data-confirm="Xóa tài khoản này?">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button class="button danger" type="submit">Xóa</button>
+                  </form>
+                <% } %>
+              </div>
+            </div>
           <% }) %>
-          </tbody>
-        </table>
+        </div>
+        <p class="switch"><a href="/drive">Quay về thư viện</a></p>
       </div>
     </section>
   </main>
-  <script src="/assets/auth.js?v=<%= assetVersion %>" defer></script>
 </body>
 </html>
