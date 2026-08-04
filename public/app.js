@@ -127,22 +127,288 @@ const checkboxes = [...document.querySelectorAll('.image-checkbox')];
 const batchDownload = document.querySelector('#batch-download');
 const batchDelete = document.querySelector('#batch-delete');
 const batchMove = document.querySelector('#batch-move');
+const downloadProgressBox = document.querySelector('#download-progress');
+const downloadBar = document.querySelector('#download-bar');
+const downloadStatus = document.querySelector('#download-status');
+const downloadPercent = document.querySelector('#download-percent');
+const downloadDetail = document.querySelector('#download-detail');
+let isBatchDownloading = false;
 function updateBatchButton() {
   const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
   if (batchDownload) {
-    batchDownload.disabled = selected === 0;
-    batchDownload.textContent = selected ? `↓ Tải ${selected} ảnh (.zip)` : '↓ Tải ảnh đã chọn (.zip)';
+    batchDownload.disabled = isBatchDownloading || selected === 0;
+    batchDownload.textContent = isBatchDownloading
+      ? `Đang tải ${selected} ảnh…`
+      : (selected ? `↓ Tải ${selected} ảnh` : '↓ Tải ảnh đã chọn');
   }
   if (batchDelete) {
-    batchDelete.disabled = selected === 0;
+    batchDelete.disabled = isBatchDownloading || selected === 0;
     batchDelete.textContent = selected ? `⌫ Xóa ${selected} ảnh` : '⌫ Xóa ảnh đã chọn';
   }
-  if (batchMove) batchMove.disabled = selected === 0;
+  if (batchMove) batchMove.disabled = isBatchDownloading || selected === 0;
   if (selectAll) selectAll.checked = checkboxes.length > 0 && selected === checkboxes.length;
 }
 if (selectAll) selectAll.addEventListener('change', () => { checkboxes.forEach((checkbox) => { checkbox.checked = selectAll.checked; }); updateBatchButton(); });
 checkboxes.forEach((checkbox) => checkbox.addEventListener('change', updateBatchButton));
 
+async function getExistingFileNames(directoryHandle) {
+  const names = new Set();
+  if (!directoryHandle?.keys) return names;
+  for await (const name of directoryHandle.keys()) names.add(String(name).toLowerCase());
+  return names;
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / (1024 ** unitIndex);
+  return `${value >= 100 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function safeDownloadName(name) {
+  const baseName = String(name || 'image').split(/[\\/]/).pop();
+  return baseName
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+    .replace(/[. ]+$/g, '')
+    .slice(0, 220) || 'image';
+}
+
+function uniqueDownloadName(name, reservedNames) {
+  const safeName = safeDownloadName(name);
+  const dotIndex = safeName.lastIndexOf('.');
+  const hasExtension = dotIndex > 0 && dotIndex < safeName.length - 1;
+  const stem = hasExtension ? safeName.slice(0, dotIndex) : safeName;
+  const extension = hasExtension ? safeName.slice(dotIndex) : '';
+  let candidate = safeName;
+  let counter = 2;
+
+  while (reservedNames.has(candidate.toLowerCase())) {
+    candidate = `${stem} (${counter})${extension}`;
+    counter += 1;
+  }
+
+  reservedNames.add(candidate.toLowerCase());
+  return candidate;
+}
+
+async function saveResponseToDirectory(response, directoryHandle, fileName, onProgress) {
+  const fileHandle = await directoryHandle.getFileHandle(fileName, { create: true });
+  const writable = await fileHandle.createWritable();
+  let loaded = 0;
+
+  try {
+    if (!response.body?.getReader) {
+      const blob = await response.blob();
+      await writable.write(blob);
+      loaded = blob.size;
+      onProgress(loaded);
+    } else {
+      const reader = response.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        await writable.write(value);
+        loaded += value.byteLength;
+        onProgress(loaded);
+      }
+    }
+
+    await writable.close();
+    return loaded;
+  } catch (error) {
+    await writable.abort().catch(() => {});
+    throw error;
+  }
+}
+
+async function responseToBlob(response, onProgress) {
+  if (!response.body?.getReader) {
+    const blob = await response.blob();
+    onProgress(blob.size);
+    return blob;
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let loaded = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.byteLength;
+    onProgress(loaded);
+  }
+
+  return new Blob(chunks, {
+    type: response.headers.get('Content-Type') || 'application/octet-stream'
+  });
+}
+
+function triggerBrowserDownload(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.hidden = true;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
+function setDownloadProgress(percent, status, detail) {
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  downloadBar.value = safePercent;
+  downloadPercent.textContent = `${safePercent}%`;
+  downloadStatus.textContent = status;
+  downloadDetail.textContent = detail;
+}
+
+async function downloadSelectedImages() {
+  const selected = checkboxes
+    .filter((checkbox) => checkbox.checked)
+    .map((checkbox, index) => ({
+      id: checkbox.value,
+      name: checkbox.dataset.imageName || `image-${index + 1}`,
+      size: Number(checkbox.dataset.sizeBytes || 0)
+    }));
+
+  if (!selected.length || isBatchDownloading) return;
+
+  let directoryHandle = null;
+  if ('showDirectoryPicker' in window) {
+    try {
+      directoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      console.warn('Không thể mở thư mục đích, chuyển sang cơ chế tải của trình duyệt.', error);
+    }
+  }
+
+  isBatchDownloading = true;
+  if (selectAll) selectAll.disabled = true;
+  checkboxes.forEach((checkbox) => { checkbox.disabled = true; });
+  updateBatchButton();
+
+  downloadProgressBox.hidden = false;
+  downloadProgressBox.classList.remove('upload-failed', 'download-complete');
+
+  const totalBytes = selected.reduce((sum, item) => sum + item.size, 0);
+  const reservedNames = directoryHandle
+    ? await getExistingFileNames(directoryHandle)
+    : new Set();
+
+  let completed = 0;
+  let completedBytes = 0;
+
+  try {
+    for (let index = 0; index < selected.length; index += 1) {
+      const item = selected[index];
+      const fileName = uniqueDownloadName(item.name, reservedNames);
+      const response = await fetch(`/images/${encodeURIComponent(item.id)}/download`, {
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
+
+      const contentType = response.headers.get('Content-Type') || '';
+      if (response.redirected || contentType.includes('text/html')) {
+        throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi tiếp tục tải.');
+      }
+      if (!response.ok) {
+        throw new Error(`Không thể tải ${item.name} (HTTP ${response.status}).`);
+      }
+
+      const responseSize = Number(
+        response.headers.get('Content-Length') || item.size || 0
+      );
+      const baseBytes = completedBytes;
+
+      const updateCurrentFile = (loaded) => {
+        let percent;
+
+        if (totalBytes > 0) {
+          percent = (
+            (baseBytes + Math.min(loaded, responseSize || loaded)) / totalBytes
+          ) * 100;
+        } else if (responseSize > 0) {
+          percent = (
+            (index + Math.min(loaded / responseSize, 1)) / selected.length
+          ) * 100;
+        } else {
+          percent = (index / selected.length) * 100;
+        }
+
+        setDownloadProgress(
+          percent,
+          `Đang tải ${index + 1}/${selected.length}: ${fileName}`,
+          `${formatBytes(baseBytes + loaded)} / ${
+            totalBytes ? formatBytes(totalBytes) : 'không xác định'
+          }`
+        );
+      };
+
+      let actualBytes;
+
+      if (directoryHandle) {
+        actualBytes = await saveResponseToDirectory(
+          response,
+          directoryHandle,
+          fileName,
+          updateCurrentFile
+        );
+      } else {
+        const blob = await responseToBlob(response, updateCurrentFile);
+        actualBytes = blob.size;
+        triggerBrowserDownload(blob, fileName);
+
+        // Tránh gửi quá nhiều lệnh download cùng một lúc cho trình duyệt.
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+      }
+
+      completed += 1;
+      completedBytes += responseSize || actualBytes;
+
+      const percent = totalBytes > 0
+        ? (completedBytes / totalBytes) * 100
+        : (completed / selected.length) * 100;
+
+      setDownloadProgress(
+        percent,
+        `Đã tải ${completed}/${selected.length} ảnh`,
+        `${formatBytes(completedBytes)}${
+          totalBytes ? ` / ${formatBytes(totalBytes)}` : ''
+        }`
+      );
+    }
+
+    setDownloadProgress(
+      100,
+      `Hoàn tất ${completed}/${selected.length} ảnh.`,
+      directoryHandle
+        ? 'Các ảnh đã được lưu riêng lẻ vào thư mục bạn chọn.'
+        : 'Các ảnh đã được gửi lần lượt tới trình duyệt.'
+    );
+
+    downloadProgressBox.classList.add('download-complete');
+    showToast(`Đã tải ${completed} ảnh riêng lẻ.`, 'success');
+  } catch (error) {
+    downloadProgressBox.classList.add('upload-failed');
+    downloadStatus.textContent = error.message || 'Không thể tải ảnh.';
+    downloadDetail.textContent = `Đã hoàn thành ${completed}/${selected.length} ảnh.`;
+    showToast(error.message || 'Không thể tải ảnh.', 'error');
+  } finally {
+    isBatchDownloading = false;
+    if (selectAll) selectAll.disabled = false;
+    checkboxes.forEach((checkbox) => { checkbox.disabled = false; });
+    updateBatchButton();
+  }
+}
+
+if (batchDownload) {
+  batchDownload.addEventListener('click', downloadSelectedImages);
+}
 if (batchDelete) batchDelete.addEventListener('click', (event) => {
   const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
   if (!window.confirm(`Bạn chắc chắn muốn xóa ${selected} ảnh đã chọn? Hành động này không thể hoàn tác.`)) event.preventDefault();
