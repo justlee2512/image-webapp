@@ -1,17 +1,12 @@
 {
   "name": "image-drive",
-  "version": "2.0.2",
+  "version": "1.0.0",
   "private": true,
-  "description": "Secure and responsive image storage app backed by PostgreSQL",
+  "description": "A small Google Drive-like image storage app",
   "main": "src/server.js",
-  "engines": {
-    "node": ">=20"
-  },
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "test": "node --test",
-    "check": "node --check src/server.js && node --check src/security.js && node --check public/toast.js && node --check public/auth.js && node --check public/app.js"
+    "dev": "node --watch src/server.js"
   },
   "dependencies": {
     "archiver": "^7.0.1",

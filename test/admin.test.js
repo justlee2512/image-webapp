@@ -1,61 +1,78 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { isAdminUser, getAdminBootstrapConfig, ensureAdminBootstrap, validateAccountInput, validatePasswordChangeInput } = require('../src/admin');
 
-const {
-  isAdminUser,
-  getAdminBootstrapConfig,
-  validatePassword,
-  validateAccountInput,
-  validatePasswordChangeInput
-} = require('../src/admin');
-
-test('admin permission comes only from is_admin flag', () => {
+test('detects admin users', () => {
   assert.equal(isAdminUser({ is_admin: true }), true);
-  assert.equal(isAdminUser({ is_admin: false, username: 'admin' }), false);
-  assert.equal(isAdminUser({ role: 'admin' }), false);
+  assert.equal(isAdminUser({ role: 'admin' }), true);
+  assert.equal(isAdminUser({ is_admin: false }), false);
   assert.equal(isAdminUser(null), false);
 });
 
-test('uses environment values for bootstrap admin', () => {
-  assert.deepEqual(getAdminBootstrapConfig({
-    NODE_ENV: 'production',
+test('treats configured admin identities as admins without a DB flag', () => {
+  const env = { ADMIN_USERNAME: 'admin', ADMIN_EMAIL: 'admin@example.com', ADMIN_PASSWORD: 'Secret123!' };
+  assert.equal(isAdminUser({ username: 'admin' }, env), true);
+  assert.equal(isAdminUser({ email: 'admin@example.com' }, env), true);
+  assert.equal(isAdminUser({ username: 'guest' }, env), false);
+});
+
+test('validates create-account input for admins and regular users', () => {
+  const regularResult = validateAccountInput({ username: 'guest', email: 'guest@example.com', password: 'Secret123!', passwordConfirm: 'Secret123!' }, { maxAccounts: 1, currentCount: 1, isAdmin: false });
+  assert.equal(regularResult.ok, false);
+  assert.match(regularResult.error, /đã đủ/);
+
+  const adminResult = validateAccountInput({ username: 'newuser', email: 'newuser@example.com', password: 'Secret123!', passwordConfirm: 'Secret123!' }, { maxAccounts: 1, currentCount: 1, isAdmin: true });
+  assert.equal(adminResult.ok, true);
+  assert.equal(adminResult.error, null);
+});
+
+test('validates password changes', () => {
+  const missingConfirm = validatePasswordChangeInput({ newPassword: 'NewPass123!', newPasswordConfirm: 'Other123!' });
+  assert.equal(missingConfirm.ok, false);
+  assert.match(missingConfirm.error, /không trùng/);
+
+  const valid = validatePasswordChangeInput({ newPassword: 'NewPass123!', newPasswordConfirm: 'NewPass123!' });
+  assert.equal(valid.ok, true);
+  assert.equal(valid.error, null);
+});
+
+test('uses environment values for the bootstrap admin', () => {
+  const config = getAdminBootstrapConfig({
     ADMIN_USERNAME: 'root',
-    ADMIN_EMAIL: 'ROOT@example.com',
-    ADMIN_PASSWORD: 'Strong-Password-123!'
-  }), {
+    ADMIN_EMAIL: 'root@example.com',
+    ADMIN_PASSWORD: 'Secret123!'
+  });
+
+  assert.deepEqual(config, {
     username: 'root',
     email: 'root@example.com',
-    password: 'Strong-Password-123!'
+    password: 'Secret123!'
   });
 });
 
-test('rejects weak passwords', () => {
-  assert.equal(validatePassword('password').ok, false);
-  assert.equal(validatePassword('onlylowercase123').ok, false);
-  assert.equal(validatePassword('Strong-Password-123!').ok, true);
-});
+test('does not overwrite an existing admin password during bootstrap', async () => {
+  let updateCalled = false;
+  const pool = {
+    async query(sql) {
+      if (sql.includes('FROM image_drive.users')) {
+        return { rowCount: 1, rows: [{ id: 7, username: 'admin', email: 'admin@example.com', password_hash: 'existing-hash' }] };
+      }
+      if (sql.includes('UPDATE image_drive.users')) {
+        updateCalled = true;
+        return { rowCount: 1 };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  };
 
-test('validates account inputs and account limit', () => {
-  const valid = validateAccountInput({
-    username: 'richard_01',
-    email: 'richard@example.com',
-    password: 'Strong-Password-123!',
-    passwordConfirm: 'Strong-Password-123!'
-  }, { maxAccounts: 5, currentCount: 4, isAdmin: false });
-  assert.equal(valid.ok, true);
+  const result = await ensureAdminBootstrap(pool, {
+    ADMIN_USERNAME: 'admin',
+    ADMIN_EMAIL: 'admin@example.com',
+    ADMIN_PASSWORD: 'NewPassword123!'
+  });
 
-  const full = validateAccountInput({
-    username: 'richard_02',
-    email: 'richard2@example.com',
-    password: 'Strong-Password-123!',
-    passwordConfirm: 'Strong-Password-123!'
-  }, { maxAccounts: 5, currentCount: 5, isAdmin: false });
-  assert.equal(full.ok, false);
-});
-
-test('validates password confirmation', () => {
-  assert.equal(validatePasswordChangeInput({
-    newPassword: 'Strong-Password-123!',
-    newPasswordConfirm: 'Another-Password-123!'
-  }).ok, false);
+  assert.equal(updateCalled, false);
+  assert.equal(result.is_admin, true);
+  assert.equal(result.username, 'admin');
+  assert.equal(result.email, 'admin@example.com');
 });

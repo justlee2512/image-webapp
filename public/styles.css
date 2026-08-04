@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,600&display=swap");
 
 :root {
   --ink: #18231e;
@@ -30,7 +31,7 @@ body {
   min-height: 100%;
   margin: 0;
   color: var(--ink);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--paper);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -363,22 +364,20 @@ select:focus-visible {
   padding: 48px clamp(38px, 7vw, 110px);
   color: #fff;
   background:
-    radial-gradient(circle at 18% 18%, rgba(126, 166, 137, 0.34), transparent 28%),
-    radial-gradient(circle at 78% 74%, rgba(208, 222, 201, 0.18), transparent 34%),
-    linear-gradient(150deg, #194130, #102d22 78%);
+    linear-gradient(150deg, rgba(25, 65, 48, 0.90), rgba(18, 45, 34, 0.94)),
+    url("https://images.unsplash.com/photo-1497250681960-ef046c08a56e?auto=format&fit=crop&w=1600&q=82") center / cover no-repeat;
 }
 
 .register-story {
   background:
-    radial-gradient(circle at 20% 22%, rgba(171, 190, 151, 0.30), transparent 28%),
-    radial-gradient(circle at 80% 72%, rgba(230, 218, 177, 0.16), transparent 34%),
-    linear-gradient(150deg, #285541, #123226 78%);
+    linear-gradient(150deg, rgba(35, 77, 59, 0.89), rgba(17, 42, 32, 0.94)),
+    url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1600&q=82") center / cover no-repeat;
 }
 
 .auth-story h1 {
   max-width: 650px;
   margin: 14px 0 24px;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Playfair Display", Georgia, serif;
   font-size: clamp(45px, 5.5vw, 76px);
   font-style: italic;
   font-weight: 600;
@@ -683,7 +682,7 @@ select:focus-visible {
 
 .hero-row em {
   color: var(--forest);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Playfair Display", Georgia, serif;
   font-weight: 600;
 }
 
@@ -1842,98 +1841,5 @@ body.lightbox-open {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-
-/* ---------- Secure optimized-backend compatibility ---------- */
-[data-live-alert].alert-hidden { display: none; }
-[data-live-alert]:not(.alert-hidden) { margin: 0 0 18px; }
-.button.disabled { opacity: .55; pointer-events: none; }
-.user-menu form { display: inline; }
-.user-menu .link-button { white-space: nowrap; }
-.photo-preview { border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: zoom-in; }
-.photo-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.photo-card.is-selected { outline: 3px solid rgba(35,77,59,.18); outline-offset: 2px; }
-.upload-progress.upload-failed progress { accent-color: var(--danger); }
-.upload-drop-hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
-.admin-card .badge { display: inline-flex; margin-left: 6px; padding: 2px 7px; border-radius: 999px; color: var(--forest); background: var(--sage); font-size: 11px; font-weight: 700; }
-.admin-card .badge.admin { color: #fff; background: var(--forest); }
-.admin-card .user-row.is-admin { border-color: rgba(35,77,59,.28); }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
-}
-
-
-/* ---------- Toast notifications ---------- */
-.toast-stack {
-  width: min(420px, calc(100vw - 32px));
-}
-
-.toast {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 28px;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-width: 0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 18px 44px rgba(82, 25, 20, 0.28);
-}
-
-.toast.error {
-  background: linear-gradient(135deg, rgba(183, 50, 43, 0.98), rgba(127, 31, 27, 0.98));
-}
-
-.toast-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.17);
-  font-size: 17px;
-  font-weight: 900;
-}
-
-.toast-message {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.toast-close {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  color: #fff;
-  background: transparent;
-  font: inherit;
-  font-size: 20px;
-  cursor: pointer;
-  opacity: 0.82;
-}
-
-.toast-close:hover,
-.toast-close:focus-visible {
-  background: rgba(255, 255, 255, 0.14);
-  opacity: 1;
-}
-
-.download-button.is-busy,
-.lightbox-button.is-busy {
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-@media (max-width: 560px) {
-  .toast-stack {
-    top: 12px;
-    right: 12px;
-    left: 12px;
-    width: auto;
   }
 }

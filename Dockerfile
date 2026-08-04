@@ -1,23 +1,29 @@
-FROM node:22-alpine AS deps
+FROM node:22-alpine AS dependencies
+
 WORKDIR /app
-ENV NODE_ENV=production
-COPY package.json ./
-RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
+
+COPY package*.json ./
+
+RUN npm install --omit=dev
+
 
 FROM node:22-alpine AS runtime
-RUN apk add --no-cache dumb-init \
-  && addgroup -S appgroup \
-  && adduser -S appuser -G appgroup
+
+RUN addgroup -S -g 10001 appgroup && \
+    adduser -S -D -H -u 10001 -G appgroup appuser
+
 WORKDIR /app
-ENV NODE_ENV=production PORT=3000
-COPY --from=deps /app/node_modules ./node_modules
-COPY --chown=appuser:appgroup package.json ./
-COPY --chown=appuser:appgroup src ./src
-COPY --chown=appuser:appgroup public ./public
-COPY --chown=appuser:appgroup views ./views
-COPY --chown=appuser:appgroup db ./db
-USER appuser
+
+COPY --from=dependencies --chown=10001:10001 \
+    /app/node_modules ./node_modules
+
+COPY --chown=10001:10001 . .
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+USER 10001:10001
+
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD wget -qO- http://127.0.0.1:3000/live || exit 1
-ENTRYPOINT ["dumb-init", "--"]
+
 CMD ["node", "src/server.js"]

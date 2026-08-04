@@ -1,50 +1,40 @@
 services:
-  postgres:
-    image: postgres:17-alpine
-    restart: unless-stopped
+  db:
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: webapp
       POSTGRES_USER: webapp
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-now}
+      POSTGRES_PASSWORD: webapp_password
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U webapp -d webapp"]
       interval: 5s
       timeout: 5s
-      retries: 20
-    security_opt:
-      - no-new-privileges:true
+      retries: 10
 
   app:
     build: .
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
-      NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://webapp:${POSTGRES_PASSWORD:-change-me-now}@postgres:5432/webapp
-      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
-      SESSION_IDLE_TIMEOUT_MS: ${SESSION_IDLE_TIMEOUT_MS:-900000}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      TRUST_PROXY: ${TRUST_PROXY:-false}
-      DB_POOL_MAX: ${DB_POOL_MAX:-5}
-      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-30}
+      DATABASE_URL: postgres://webapp:webapp_password@db:5432/webapp
+      SESSION_SECRET: local-docker-secret-change-in-production
+      SESSION_IDLE_TIMEOUT_MS: 900000
+      TRUST_PROXY: "false"
+      COOKIE_SECURE: "false"
+      MAX_ACCOUNTS: 5
+      MAX_FILE_SIZE_MB: 30
+      DB_POOL_MAX: 5
+      DB_STATEMENT_TIMEOUT_MS: 120000
+      MAX_CONCURRENT_UPLOADS: 1
+      MAX_CONCURRENT_DOWNLOADS: 2
     ports:
       - "3000:3000"
-    read_only: true
-    tmpfs:
-      - /tmp:size=64m,noexec,nosuid,nodev
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
-  postgres-data:
+  postgres_data:

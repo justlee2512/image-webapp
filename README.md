@@ -1,106 +1,91 @@
-# Richard Le Image Drive — optimized v2
+# Richard Le Image Drive
 
-Ứng dụng Node.js/Express lưu ảnh và metadata trong PostgreSQL. Bản v2 giữ các chức năng cũ: đăng ký/đăng nhập, quản lý tài khoản, folder, chia sẻ chỉ đọc, upload nhiều ảnh, di chuyển, xóa hàng loạt và tải ZIP; đồng thời tăng bảo mật, hiệu suất và độ mượt.
+Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được lưu trực tiếp trong PostgreSQL (`BYTEA`). Hệ thống giới hạn tối đa 5 tài khoản, hỗ trợ upload tuần tự, kéo hoặc chọn nhiều ảnh để chuyển folder, chọn/xóa nhiều ảnh, tải ZIP và chia sẻ folder chỉ đọc.
 
-## Nâng cấp từ repository hiện tại
-
-1. Sao lưu database trước khi cập nhật.
-2. Thay source code bằng nội dung trong package này.
-3. Cập nhật biến môi trường theo `.env.example`.
-4. Chạy migration an toàn:
+## Chạy bằng Docker
 
 ```bash
-psql "$DATABASE_URL" -f db/init.sql
+docker compose up --build
 ```
 
-5. Build và rollout lại ứng dụng.
+Mở [http://localhost:3000](http://localhost:3000). PostgreSQL tự tạo database `webapp`, schema `image_drive` và các bảng bằng `db/init.sql`.
 
-Database cũ được giữ nguyên. Script chỉ thêm các cột/index còn thiếu. Tài khoản trùng với `ADMIN_USERNAME` hoặc `ADMIN_EMAIL` được đánh dấu `is_admin=true`; mật khẩu hiện có không bị ghi đè.
-
-## Chạy nhanh bằng Docker Compose
-
-Tạo `.env` tối thiểu:
-
-```env
-POSTGRES_PASSWORD=replace-with-strong-db-password
-SESSION_SECRET=replace-with-random-secret-at-least-32-characters
-ADMIN_PASSWORD=replace-with-strong-admin-password
-COOKIE_SECURE=false
-TRUST_PROXY=false
-```
-
-Sau đó:
+Tắt app:
 
 ```bash
-docker compose up --build -d
-docker compose logs -f app
+docker compose down
 ```
 
-Mở `http://localhost:3000`.
+Xóa cả dữ liệu để thử lại từ đầu:
 
-## PostgreSQL bên ngoài
+```bash
+docker compose down -v
+```
+
+## Chạy local
+
+Yêu cầu Node.js 20+ và PostgreSQL. Tạo DB `webapp`, chạy `db/init.sql`, sau đó:
 
 ```bash
 cp .env.example .env
-# sửa DATABASE_URL và các secret
-psql "$DATABASE_URL" -f db/init.sql
-docker compose -f docker-compose.external-db.yml --env-file .env up --build -d
+npm install
+npm start
 ```
 
-## Kubernetes
+Mặc định hỗ trợ JPG, PNG, GIF, WebP, tối đa 30 MB mỗi ảnh và không giới hạn số ảnh được chọn. Ảnh được upload tuần tự, mỗi request chỉ chứa một ảnh. Có thể đổi giới hạn dung lượng qua biến môi trường `MAX_FILE_SIZE_MB`.
 
-Các replica phải dùng chung `DATABASE_URL`, `SESSION_SECRET`, `SESSION_IDLE_TIMEOUT_MS` và cấu hình cookie. Ví dụ quan trọng:
+## Dùng PostgreSQL có sẵn
+
+Với PostgreSQL tại `192.168.2.90`, tạo file `.env` từ `.env.example` và điền đúng `DB_USER`, `DB_PASSWORD`. Đảm bảo database `webapp` đã tồn tại, sau đó khởi tạo bảng:
+
+```bash
+psql -h 192.168.2.90 -U YOUR_DB_USER -d webapp -f db/init.sql
+```
+
+Chạy riêng container web (không tạo thêm container PostgreSQL):
+
+```bash
+docker compose -f docker-compose.external-db.yml --env-file .env up --build
+```
+
+PostgreSQL cần cho phép máy chạy Docker kết nối TCP đến cổng 5432. Nếu mật khẩu chứa ký tự đặc biệt dùng trong URL như `@`, `:`, `/`, `%`, hãy URL-encode giá trị đó.
+
+Khi nâng cấp từ phiên bản cũ có database đang chứa ảnh, chạy lại script sau một lần. Các lệnh dùng `IF NOT EXISTS` nên giữ nguyên dữ liệu hiện tại:
+
+```bash
+psql -h 192.168.2.90 -U YOUR_DB_USER -d webapp -f db/init.sql
+```
+
+Schema mới lưu thêm thumbnail WebP. Ảnh cũ tự tạo thumbnail ở lần xem đầu tiên; ảnh mới tạo thumbnail ngay khi upload. App mặc định chỉ cho 1 upload và 2 lượt đọc file lớn chạy đồng thời để bảo vệ PostgreSQL chạy trên HDD. Có thể điều chỉnh bằng `MAX_CONCURRENT_UPLOADS`, `MAX_CONCURRENT_DOWNLOADS` và `DB_POOL_MAX`.
+
+## Chạy nhiều replica trên Kubernetes
+
+Session đăng nhập được lưu trong bảng `image_drive.sessions`, nên không cần sticky session và request có thể đi tới pod bất kỳ. Trước khi rollout, chạy `db/init.sql` một lần bằng migration Job hoặc tài khoản có quyền tạo bảng/index. App cũng tự tạo bảng session nếu chưa có; PostgreSQL advisory lock bảo vệ trường hợp nhiều pod khởi động cùng lúc.
+
+Mọi pod phải dùng chung các giá trị sau:
 
 ```yaml
 env:
-  - name: NODE_ENV
-    value: production
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef: { name: image-drive, key: database-url }
+  - name: SESSION_SECRET
+    valueFrom:
+      secretKeyRef: { name: image-drive, key: session-secret }
   - name: TRUST_PROXY
     value: "true"
   - name: COOKIE_SECURE
     value: "true"
-  - name: SESSION_IDLE_TIMEOUT_MS
-    value: "900000"
+  - name: DB_POOL_MAX
+    value: "5"
 readinessProbe:
-  httpGet:
-    path: /health
-    port: 3000
+  httpGet: { path: /health, port: 3000 }
 livenessProbe:
-  httpGet:
-    path: /live
-    port: 3000
+  httpGet: { path: /health, port: 3000 }
 ```
 
-`/live` chỉ kiểm tra tiến trình Node.js. `/health` kiểm tra cả PostgreSQL và session store.
+`SESSION_SECRET` phải cố định, giống nhau trên tất cả pod và dài ít nhất 32 ký tự. `COOKIE_SECURE=true` chỉ dùng khi người dùng truy cập qua HTTPS; nếu Ingress chỉ phục vụ HTTP thì đặt `false`. Với Ingress terminate TLS, giữ `TRUST_PROXY=true` để Express nhận đúng giao thức gốc.
 
-## Những thay đổi chính
+Session mặc định tự hết hạn sau 15 phút không có request sử dụng ứng dụng. Mỗi request hợp lệ sẽ gia hạn lại thời gian này. Có thể thay đổi bằng `SESSION_IDLE_TIMEOUT_MS` (đơn vị millisecond), và mọi pod nên dùng cùng một giá trị.
 
-- **Upload an toàn hơn:** không tin `Content-Type` do trình duyệt gửi; kiểm tra magic bytes, Sharp metadata, MIME thật và giới hạn số pixel.
-- **Session an toàn hơn:** PostgreSQL session store, cookie `HttpOnly`, `SameSite=Lax`, regenerate sau đăng nhập và tự hết hạn theo thời gian không hoạt động.
-- **Chống request giả mạo:** token CSRF cho form, AJAX và multipart upload.
-- **Chống brute-force cơ bản:** giới hạn login/register theo IP và identity trên từng pod.
-- **Ảnh tải nhanh hơn:** thumbnail WebP, lazy loading, ETag và cache private dài hạn vì ID ảnh bất biến.
-- **Database nhẹ hơn:** trang thư viện không lấy cột BYTEA; index riêng cho root/folder/share/session.
-- **Bảo vệ tài nguyên:** semaphore có giới hạn hàng đợi, giới hạn ZIP và timeout HTTP/PostgreSQL.
-- **Container cứng hóa:** non-root, read-only root filesystem, `no-new-privileges`, drop all capabilities.
-
-## Kiểm tra
-
-```bash
-npm install
-npm run check
-npm test
-```
-
-## Lưu ý vận hành
-
-Rate-limit hiện dùng bộ nhớ trong từng pod, phù hợp cho ứng dụng nhỏ. Khi mở rộng nhiều người dùng hoặc public Internet, nên đặt rate-limit tập trung tại Cloudflare, NGINX Ingress, API Gateway hoặc Redis.
-
-Ảnh vẫn lưu trong PostgreSQL `BYTEA` để tương thích dữ liệu hiện tại. Khi dung lượng tăng lên hàng chục/hàng trăm GB, nên chuyển blob sang S3/MinIO và chỉ giữ metadata trong PostgreSQL.
-
-## Toast lỗi và làm mới frontend
-
-- Các thao tác giao diện gửi AJAX; lỗi, `401`, `403` và lỗi hệ thống sẽ hiện toast đỏ rồi tự mờ, không mở trang lỗi riêng.
-- HTML, CSS và JavaScript mặc định có `Cache-Control: no-store`; ảnh/thumbnail vẫn được cache dài hạn.
-- Đặt `ASSET_VERSION` bằng Git SHA hoặc image tag trong CI/CD để xác định đúng frontend đang chạy.
-- Có thể bật lại cache frontend bằng `DISABLE_FRONTEND_CACHE=false`, nhưng không khuyến nghị khi đang triển khai thường xuyên.
+Tổng số connection tối đa xấp xỉ `replicas × DB_POOL_MAX`. Ví dụ 4 pod và `DB_POOL_MAX=5` có thể dùng tối đa 20 connection; cần giữ con số này thấp hơn `max_connections` của PostgreSQL sau khi chừa connection cho migration, giám sát và quản trị.
