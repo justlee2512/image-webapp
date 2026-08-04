@@ -12,6 +12,7 @@ const sharp = require('sharp');
 const pool = require('./db');
 const PgSessionStore = require('./pg-session-store');
 const { ensureAdminBootstrap, isAdminUser, validateAccountInput, validatePasswordChangeInput } = require('./admin');
+const { getAssetVersion, applyCacheHeaders } = require('./cache');
 
 sharp.cache(false);
 sharp.concurrency(1);
@@ -51,9 +52,11 @@ const downloadQueue = new Semaphore(Number(process.env.MAX_CONCURRENT_DOWNLOADS 
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
+app.locals.assetVersion = getAssetVersion(process.env);
 if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(express.urlencoded({ extended: false }));
+app.use(applyCacheHeaders);
 app.use(express.static(path.join(__dirname, '..', 'public'), { etag: true, maxAge: 0 }));
 const sessionStore = new PgSessionStore({ pool, ttlMs: sessionTtlMs });
 app.use(session({
@@ -85,7 +88,8 @@ function authRequired(req, res, next) {
 }
 
 function renderAuth(res, view, values = {}) {
-  res.status(values.status || 200).render(view, { error: values.error || null, form: values.form || {}, maxAccounts });
+  const assetVersion = res.app.locals.assetVersion || getAssetVersion(process.env);
+  res.status(values.status || 200).render(view, { error: values.error || null, form: values.form || {}, maxAccounts, assetVersion });
 }
 
 function driveUrl(folderId) {
