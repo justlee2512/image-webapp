@@ -10,6 +10,16 @@ CREATE TABLE IF NOT EXISTS image_drive.users (
   CONSTRAINT users_email_unique UNIQUE (email)
 );
 
+CREATE TABLE IF NOT EXISTS image_drive.account_requests (
+  id UUID PRIMARY KEY,
+  username VARCHAR(30) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT account_requests_username_unique UNIQUE (username),
+  CONSTRAINT account_requests_email_unique UNIQUE (email)
+);
+
 CREATE TABLE IF NOT EXISTS image_drive.folders (
   id UUID PRIMARY KEY,
   owner_id BIGINT NOT NULL REFERENCES image_drive.users(id) ON DELETE CASCADE,
@@ -71,6 +81,7 @@ CREATE INDEX IF NOT EXISTS sessions_expire_idx
 
 -- Giúp PostgreSQL cập nhật thống kê sau khi thêm index/cột trên database hiện có.
 ANALYZE image_drive.users;
+ANALYZE image_drive.account_requests;
 ANALYZE image_drive.folders;
 ANALYZE image_drive.folder_shares;
 ANALYZE image_drive.images;
