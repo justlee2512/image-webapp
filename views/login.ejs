@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Đăng nhập · Richard Le Drive</title><link rel="stylesheet" href="/styles.css?<%= assetVersion %>"><script src="/login.js?<%= assetVersion %>" defer></script>
+  <title>Đăng nhập · Richard Le Drive</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles.css?<%= assetVersion %>"><script src="/login.js?<%= assetVersion %>" defer></script>
 </head>
 <body class="auth-page">
   <main class="auth-shell">
@@ -18,6 +18,7 @@
     </section>
     <section class="auth-panel">
       <form class="auth-card" id="login-form" method="post" action="/login">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
         <p class="eyebrow ink">CHÀO MỪNG TRỞ LẠI</p><h2>Đăng nhập</h2><p class="muted">Tiếp tục đến thư viện ảnh của bạn.</p>
         <% if (error) { %><div class="alert error"><%= error %></div><% } %>

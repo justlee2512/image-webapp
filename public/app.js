@@ -2,6 +2,7 @@ const input = document.querySelector('#image-input');
 const uploadForm = document.querySelector('.upload-form');
 const progressBox = document.querySelector('#upload-progress');
 const toastStack = document.querySelector('#toast-stack');
+const csrfToken = document.querySelector('input[name="_csrf"]')?.value || '';
 
 function showToast(message, type = 'error') {
   if (!message || !toastStack) return;
@@ -66,9 +67,11 @@ function uploadOne(file, folderId, index, total) {
     const request = new XMLHttpRequest();
     const data = new FormData();
     data.append('folderId', folderId);
+    data.append('_csrf', csrfToken);
     data.append('image', file, file.name);
     request.open('POST', '/images');
     request.setRequestHeader('X-Upload-Queue', 'sequential');
+    request.setRequestHeader('X-CSRF-Token', csrfToken);
     request.responseType = 'json';
     request.upload.addEventListener('progress', (event) => {
       if (!event.lengthComputable) return;
@@ -444,6 +447,7 @@ folderTargets.forEach((folder) => {
     const body = new URLSearchParams();
     ids.forEach((id) => body.append('imageIds', id));
     body.set('targetFolderId', folder.dataset.folderId);
+    body.set('_csrf', csrfToken);
     try {
       const response = await fetch('/images/move', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' }, body });
       const result = await response.json();

@@ -14,6 +14,7 @@ const PgSessionStore = require('./pg-session-store');
 const { ensureAdminBootstrap, isAdminUser, validateAccountInput, validatePasswordChangeInput } = require('./admin');
 const { getAssetVersion, applyCacheHeaders } = require('./cache');
 const { setFlash, clearFlash } = require('./flash');
+const { ensureCsrfToken, csrfProtection, LoginRateLimiter } = require('./security');
 
 sharp.cache(false);
 sharp.concurrency(1);
@@ -26,6 +27,9 @@ const sessionTtlMs = Number(process.env.SESSION_IDLE_TIMEOUT_MS || process.env.S
 
 if (process.env.NODE_ENV === 'production' && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
   throw new Error('SESSION_SECRET phải được cấu hình giống nhau trên tất cả pod và dài ít nhất 32 ký tự.');
+}
+if (process.env.NODE_ENV === 'production' && (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD === 'Admin@123456' || process.env.ADMIN_PASSWORD.length < 12)) {
+  throw new Error('ADMIN_PASSWORD phải được cấu hình riêng và dài ít nhất 12 ký tự trong production.');
 }
 
 class Semaphore {
@@ -55,7 +59,24 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.locals.assetVersion = getAssetVersion(process.env);
 if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);
-app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.disable('x-powered-by');
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'", 'blob:', 'data:'],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"]
+    }
+  },
+  crossOriginResourcePolicy: { policy: 'same-origin' }
+}));
 app.use(express.urlencoded({ extended: false }));
 app.use(applyCacheHeaders);
 app.use(express.static(path.join(__dirname, '..', 'public'), { etag: true, maxAge: 0 }));
@@ -73,6 +94,24 @@ app.use(session({
     maxAge: sessionTtlMs
   }
 }));
+app.use(ensureCsrfToken);
+app.use(csrfProtection);
+
+const loginLimiter = new LoginRateLimiter({
+  windowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  maxAttempts: Number(process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS || 10)
+});
+
+function establishSession(req, user) {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((error) => {
+      if (error) return reject(error);
+      req.session.user = user;
+      req.session.csrfToken = crypto.randomBytes(32).toString('base64url');
+      req.session.save((saveError) => saveError ? reject(saveError) : resolve());
+    });
+  });
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -157,7 +196,7 @@ app.post('/register', async (req, res) => {
       [username, email, passwordHash]
     );
     await client.query('COMMIT');
-    req.session.user = { id: result.rows[0].id, username: result.rows[0].username, email: result.rows[0].email, is_admin: isAdminUser(result.rows[0]) };
+    await establishSession(req, { id: result.rows[0].id, username: result.rows[0].username, email: result.rows[0].email, is_admin: isAdminUser(result.rows[0]) });
     res.redirect('/drive');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -171,11 +210,20 @@ app.get('/login', (_req, res) => renderAuth(res, 'login'));
 app.post('/login', async (req, res) => {
   const identity = String(req.body.identity || '').trim();
   const password = String(req.body.password || '');
+  const rateLimit = loginLimiter.check(req, identity);
+  if (!rateLimit.allowed) {
+    res.set('Retry-After', String(rateLimit.retryAfterSeconds));
+    return renderAuth(res, 'login', { status: 429, error: 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau.', form: { identity } });
+  }
   try {
     const result = await pool.query('SELECT id, username, email, password_hash FROM image_drive.users WHERE lower(email) = lower($1) OR lower(username) = lower($1)', [identity]);
     const user = result.rows[0];
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) return renderAuth(res, 'login', { status: 401, error: 'Thông tin đăng nhập không đúng.', form: { identity } });
-    req.session.user = { id: user.id, username: user.username, email: user.email, is_admin: isAdminUser(user) };
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      loginLimiter.fail(req, identity);
+      return renderAuth(res, 'login', { status: 401, error: 'Thông tin đăng nhập không đúng.', form: { identity } });
+    }
+    loginLimiter.clear(req, identity);
+    await establishSession(req, { id: user.id, username: user.username, email: user.email, is_admin: isAdminUser(user) });
     res.redirect('/drive');
   } catch (error) { console.error(error); renderAuth(res, 'login', { status: 500, error: 'Không thể đăng nhập lúc này.' }); }
 });
@@ -224,6 +272,7 @@ app.post('/admin/users/:id/delete', authRequired, async (req, res) => {
   }
   try {
     const result = await pool.query('DELETE FROM image_drive.users WHERE id = $1 RETURNING id', [req.params.id]);
+    if (result.rowCount) await pool.query("DELETE FROM image_drive.sessions WHERE sess #>> '{user,id}' = $1", [String(req.params.id)]);
     setFlash(req, result.rowCount ? 'success' : 'error', result.rowCount ? 'Đã xóa tài khoản.' : 'Không tìm thấy tài khoản.');
   } catch (error) {
     console.error(error);
@@ -244,6 +293,7 @@ app.post('/admin/users/:id/reset-password', authRequired, async (req, res) => {
   try {
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await pool.query('UPDATE image_drive.users SET password_hash = $1 WHERE id = $2', [passwordHash, req.params.id]);
+    await pool.query("DELETE FROM image_drive.sessions WHERE sess #>> '{user,id}' = $1 AND sid <> $2", [String(req.params.id), req.sessionID]);
     setFlash(req, 'success', 'Đã đổi mật khẩu cho tài khoản.');
   } catch (error) {
     console.error(error);
