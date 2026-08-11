@@ -14,6 +14,18 @@ function csrfProtection(req, res, next) {
     && supplied.length === expected.length
     && crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
   if (valid) return next();
+
+  // Login and registration deliberately work without an authenticated session.
+  // Every other state-changing request belongs to the signed-in area, so a
+  // missing user here means the server-side session has expired.
+  const isPublicAuthRequest = req.path === '/login' || req.path === '/register';
+  if (req.path && !req.session?.user && !isPublicAuthRequest) {
+    if (req.get('X-Requested-With') === 'XMLHttpRequest' || req.get('X-Upload-Queue')) {
+      return res.status(401).json({ ok: false, message: 'Phiên đăng nhập đã hết hạn.', redirectTo: '/login' });
+    }
+    return res.redirect('/login');
+  }
+
   if (req.get('X-Requested-With') === 'XMLHttpRequest' || req.get('X-Upload-Queue')) {
     return res.status(403).json({ ok: false, message: 'Phiên bảo mật đã hết hạn. Vui lòng tải lại trang.' });
   }

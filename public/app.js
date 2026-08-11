@@ -16,6 +16,12 @@ function showToast(message, type = 'error') {
   }, 3200);
 }
 
+function redirectIfSessionExpired(response, result) {
+  if (response.status !== 401 || !result?.redirectTo) return false;
+  window.location.assign(result.redirectTo);
+  return true;
+}
+
 function showInlineAlerts() {
   document.querySelectorAll('.alert').forEach((alert) => {
     if (!alert.classList.contains('toast')) {
@@ -44,6 +50,7 @@ async function submitAjaxForm(event) {
       body
     });
     const result = await response.json().catch(() => null);
+    if (redirectIfSessionExpired(response, result)) return;
     if (!response.ok || !result?.ok) throw new Error(result?.message || 'Không thể thực hiện thao tác.');
     showToast(result.message || 'Thao tác thành công.', 'success');
     window.setTimeout(() => window.location.reload(), 300);
@@ -82,6 +89,10 @@ function uploadOne(file, folderId, index, total) {
     });
     request.addEventListener('load', () => {
       if (request.status >= 200 && request.status < 300 && request.response?.ok) resolve();
+      else if (request.status === 401 && request.response?.redirectTo) {
+        window.location.assign(request.response.redirectTo);
+        reject(new Error('Phiên đăng nhập đã hết hạn.'));
+      }
       else reject(new Error(request.response?.message || `Không thể tải ${file.name}.`));
     });
     request.addEventListener('error', () => reject(new Error(`Mất kết nối khi tải ${file.name}.`)));
@@ -451,6 +462,7 @@ folderTargets.forEach((folder) => {
     try {
       const response = await fetch('/images/move', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' }, body });
       const result = await response.json();
+      if (redirectIfSessionExpired(response, result)) return;
       if (!response.ok || !result.ok) throw new Error(result.message);
       window.location.reload();
     } catch (error) { window.alert(error.message || 'Không thể di chuyển ảnh.'); }

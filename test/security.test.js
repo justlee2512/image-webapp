@@ -7,6 +7,7 @@ function responseStub() {
     locals: {},
     statusCode: 200,
     status(code) { this.statusCode = code; return this; },
+    redirect(location) { this.redirectedTo = location; return this; },
     send(message) { this.body = message; return this; },
     json(value) { this.body = value; return this; }
   };
@@ -33,6 +34,24 @@ test('rejects invalid CSRF tokens and accepts a valid token', () => {
   const res = responseStub();
   csrfProtection(invalidReq, res, () => assert.fail('must not call next'));
   assert.equal(res.statusCode, 403);
+});
+
+test('redirects signed-out protected form submissions to login', () => {
+  const req = { method: 'POST', path: '/logout', session: {}, body: { _csrf: 'stale' }, get: () => undefined };
+  const res = responseStub();
+  csrfProtection(req, res, () => assert.fail('must not call next'));
+  assert.equal(res.redirectedTo, '/login');
+});
+
+test('returns a login redirect for signed-out AJAX requests', () => {
+  const req = {
+    method: 'POST', path: '/folders', session: {}, body: { _csrf: 'stale' },
+    get: (name) => name === 'X-Requested-With' ? 'XMLHttpRequest' : undefined
+  };
+  const res = responseStub();
+  csrfProtection(req, res, () => assert.fail('must not call next'));
+  assert.equal(res.statusCode, 401);
+  assert.deepEqual(res.body, { ok: false, message: 'Phiên đăng nhập đã hết hạn.', redirectTo: '/login' });
 });
 
 test('rate limits repeated failed logins and clears successful identities', () => {
