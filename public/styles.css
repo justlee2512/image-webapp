@@ -1843,3 +1843,22 @@ body.lightbox-open {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Individual download progress ---------- */
+.batch-download-progress {
+  margin: -4px 0 18px;
+}
+
+.batch-download-progress small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.batch-download-progress.download-complete {
+  border-color: #9eb9a6;
+  background: #f3f8f4;
+}
+

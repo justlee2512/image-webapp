@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Quản trị tài khoản · Richard Le Drive</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css?<%= assetVersion %>">
 </head>
 <body class="auth-page">
@@ -13,11 +14,32 @@
         <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
         <p class="eyebrow ink">QUẢN TRỊ</p>
         <h2>Quản lý tài khoản</h2>
-        <p class="muted">Admin có thể tạo tài khoản mới, xóa người dùng và đổi mật khẩu.</p>
+        <p class="muted">Admin có thể duyệt đăng ký, tạo tài khoản mới, xóa người dùng và đổi mật khẩu.</p>
         <% if (error) { %><div class="alert error"><%= error %></div><% } %>
         <% if (success) { %><div class="alert success"><%= success %></div><% } %>
 
+        <div class="user-list">
+          <h3>Yêu cầu đăng ký chờ duyệt (<%= accountRequests.length %>)</h3>
+          <% if (!accountRequests.length) { %><p class="muted">Không có yêu cầu nào đang chờ.</p><% } %>
+          <% accountRequests.forEach((request) => { %>
+            <div class="user-row">
+              <div><strong><%= request.username %></strong><small><%= request.email %></small></div>
+              <div class="user-actions">
+                <form method="post" action="/admin/account-requests/<%= request.id %>/approve">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="button primary" type="submit">Chấp thuận</button>
+                </form>
+                <form method="post" action="/admin/account-requests/<%= request.id %>/reject" onsubmit="return confirm('Từ chối yêu cầu đăng ký này?')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="button danger" type="submit">Từ chối</button>
+                </form>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+
         <form class="admin-form" method="post" action="/admin/users" data-ajax-form="true">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <h3>Tạo tài khoản mới</h3>
           <label>Tên tài khoản<input name="username" required placeholder="newuser"></label>
           <label>Email<input type="email" name="email" required placeholder="newuser@example.com"></label>
@@ -36,12 +58,14 @@
               </div>
               <div class="user-actions">
                 <form method="post" action="/admin/users/<%= account.id %>/reset-password" data-ajax-form="true">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <input type="password" name="newPassword" placeholder="Mật khẩu mới" required>
                   <input type="password" name="newPasswordConfirm" placeholder="Nhập lại" required>
                   <button class="button outline" type="submit">Đổi mật khẩu</button>
                 </form>
                 <% if (Number(account.id) !== Number(user.id)) { %>
                   <form method="post" action="/admin/users/<%= account.id %>/delete" data-ajax-form="true" onsubmit="return confirm('Xóa tài khoản này?')">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                     <button class="button danger" type="submit">Xóa</button>
                   </form>
                 <% } %>
