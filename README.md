@@ -4,11 +4,11 @@ Web app Node.js lưu trữ ảnh theo tài khoản. Ảnh và metadata được 
 
 ## Chạy bằng Docker
 
-Tạo `.env` từ `.env.example`, thay `ADMIN_PASSWORD` bằng mật khẩu riêng (12 ký tự trở lên, tối đa 72 byte) và `SESSION_SECRET` bằng chuỗi ngẫu nhiên ít nhất 32 ký tự. Có thể tạo secret bằng `openssl rand -hex 32`. App từ chối mật khẩu admin mặc định hoặc giá trị mẫu.
+Tạo `.env` từ `.env.example` và thay `SESSION_SECRET` bằng chuỗi ngẫu nhiên ít nhất 32 ký tự. Có thể tạo secret bằng `openssl rand -hex 32`. Tài khoản admin và mật khẩu phải tồn tại sẵn trong database.
 
 ```bash
 cp .env.example .env
-# Điền mật khẩu và secret riêng trước khi chạy.
+# Điền secret riêng trước khi chạy.
 docker compose up --build
 ```
 
@@ -32,7 +32,7 @@ Yêu cầu Node.js 22.12+ và PostgreSQL. Tạo DB `webapp`, chạy `db/init.sql
 
 ```bash
 cp .env.example .env
-# Điền DATABASE_URL, ADMIN_PASSWORD và SESSION_SECRET riêng.
+# Điền DATABASE_URL và SESSION_SECRET riêng.
 npm ci
 npm start
 ```
@@ -81,9 +81,6 @@ env:
     value: "admin"
   - name: ADMIN_EMAIL
     value: "admin@example.com"
-  - name: ADMIN_PASSWORD
-    valueFrom:
-      secretKeyRef: { name: image-drive, key: admin-password }
   - name: TRUST_PROXY
     value: "true"
   - name: COOKIE_SECURE
@@ -107,12 +104,7 @@ Tổng số connection tối đa xấp xỉ `replicas × DB_POOL_MAX`. Ví dụ 
 
 Quyền quản trị nằm trong cột `users.is_admin`, mặc định `FALSE`; username/email không tự cấp quyền. App đọc lại quyền từ database cho mỗi request cần đăng nhập, nên session cũ không giữ quyền đã bị thu hồi. Khi triển khai bản sửa, thay thế toàn bộ replica cũ trước khi mở lại lưu lượng.
 
-Bootstrap được khóa để chạy an toàn trên nhiều replica. Với database cũ, `ADMIN_USERNAME` và `ADMIN_EMAIL` phải cùng khớp chính xác một tài khoản:
-
-- Nếu tài khoản còn dùng mật khẩu mặc định cũ, bootstrap thay bằng `ADMIN_PASSWORD` mới và xóa session của tài khoản đó.
-- Nếu tài khoản chưa có cờ admin và dùng mật khẩu khác, `ADMIN_PASSWORD` phải khớp mật khẩu hiện tại để xác nhận chuyển quyền. Mật khẩu này phải đáp ứng yêu cầu mới; tài khoản có mật khẩu yếu khác cần được quản trị viên đổi mật khẩu trong database trước khi nâng cấp.
-- Nếu tài khoản đã có cờ admin, bootstrap giữ mật khẩu riêng hiện tại. Đổi biến môi trường không phải thao tác reset mật khẩu.
-- Nếu username/email trùng những tài khoản khác nhau hoặc không xác minh được mật khẩu, app dừng khởi động thay vì cấp nhầm quyền.
+Bootstrap được khóa để chạy an toàn trên nhiều replica. `ADMIN_USERNAME` và `ADMIN_EMAIL` phải cùng khớp chính xác một tài khoản đã có trong database. Nếu chưa có tài khoản mang cả hai giá trị này, app dừng khởi động và không tạo tài khoản mới. Trong lần nâng cấp đầu tiên, nếu database chưa có tài khoản nào mang cờ `is_admin`, tài khoản khớp chính xác sẽ được cấp cờ admin và đăng xuất khỏi session cũ. Mật khẩu đã lưu trong database luôn được giữ nguyên và không cần khai báo trong ConfigMap hoặc Secret. Sau lần nâng cấp, quyền admin chỉ dựa vào cột `users.is_admin`.
 
 Giới hạn đăng nhập/đăng ký được lưu chung trong PostgreSQL, tính cả yêu cầu thành công và thất bại, cập nhật nguyên tử trước khi xử lý mật khẩu. Khi database không sẵn sàng, endpoint từ chối xử lý thay vì bỏ qua giới hạn. Bảng giới hạn tối đa 10.000 mục; mục hết hạn được dọn khi có yêu cầu tiếp theo, bảng đầy trả `429`.
 

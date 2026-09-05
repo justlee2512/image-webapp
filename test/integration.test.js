@@ -33,9 +33,9 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
   const pool = new Pool({ connectionString: databaseUrl.toString(), max: 10 });
   closePool = trackPoolShutdown(pool);
   await pool.query(await fs.readFile(require.resolve('../db/init.sql'), 'utf8'));
-  const config = { ADMIN_USERNAME: 'owner', ADMIN_EMAIL: 'owner@example.com', ADMIN_PASSWORD: 'UniqueAdminPassword123!' };
-  const oldDefaultHash = await bcrypt.hash('Admin@123456', 4);
-  const secureHash = await bcrypt.hash(config.ADMIN_PASSWORD, 4);
+  const config = { ADMIN_USERNAME: 'owner', ADMIN_EMAIL: 'owner@example.com' };
+  const loginPassword = 'UniqueAdminPassword123!';
+  const secureHash = await bcrypt.hash(loginPassword, 4);
 
   async function reset() {
     await pool.query('TRUNCATE image_drive.users, image_drive.account_requests, image_drive.sessions, image_drive.rate_limits CASCADE');
@@ -44,31 +44,32 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
     return (await pool.query('INSERT INTO image_drive.users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING *', [username, `${username}@example.com`, passwordHash])).rows[0];
   }
 
-  await t.test('migrates a legacy admin, rotates the known default and revokes sessions', async () => {
+  await t.test('migrates an existing legacy admin without changing its password', async () => {
     await pool.query('ALTER TABLE image_drive.users DROP COLUMN is_admin');
-    const user = await createUser('owner', oldDefaultHash);
+    const user = await createUser('owner', secureHash);
     await pool.query("INSERT INTO image_drive.sessions (sid, sess, expire) VALUES ('legacy', $1, CURRENT_TIMESTAMP + INTERVAL '1 hour')", [JSON.stringify({ user: { id: user.id, is_admin: true } })]);
     const admin = await ensureAdminBootstrap(pool, config);
     const stored = (await pool.query('SELECT * FROM image_drive.users WHERE id = $1', [user.id])).rows[0];
     assert.equal(admin.is_admin, true);
     assert.equal(stored.is_admin, true);
-    assert.equal(await bcrypt.compare(config.ADMIN_PASSWORD, stored.password_hash), true);
-    assert.equal(await bcrypt.compare('Admin@123456', stored.password_hash), false);
+    assert.equal(stored.password_hash, secureHash);
     assert.equal((await pool.query('SELECT * FROM image_drive.sessions')).rowCount, 0);
     assert.equal('password' in admin, false);
     assert.equal('password_hash' in admin, false);
   });
 
-  await t.test('does not promote a matching name without verifying the existing password', async () => {
+  await t.test('requires both configured identities to match the existing account', async () => {
     await reset();
-    const user = await createUser('owner', await bcrypt.hash('OtherSecurePassword123!', 4));
-    await assert.rejects(ensureAdminBootstrap(pool, config), /mật khẩu hiện tại/);
+    const user = await createUser('owner');
+    await assert.rejects(ensureAdminBootstrap(pool, { ...config, ADMIN_EMAIL: 'other@example.com' }), /chưa có admin/);
     assert.equal((await pool.query('SELECT is_admin FROM image_drive.users WHERE id = $1', [user.id])).rows[0].is_admin, false);
-    await assert.rejects(ensureAdminBootstrap(pool, { ...config, ADMIN_EMAIL: 'other@example.com' }), /định danh/);
+    await ensureAdminBootstrap(pool, config);
+    await assert.rejects(ensureAdminBootstrap(pool, { ...config, ADMIN_EMAIL: 'other@example.com' }), /không khớp/);
   });
 
   await t.test('concurrent bootstrap creates one admin and preserves a changed secure password', async () => {
     await reset();
+    await createUser('owner');
     const admins = await settleAll([ensureAdminBootstrap(pool, config), ensureAdminBootstrap(pool, config)]);
     assert.equal(admins[0].id, admins[1].id);
     const changedHash = await bcrypt.hash('ChangedSecurePassword123!', 4);
@@ -106,6 +107,7 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
 
   await t.test('HTTP registration, approval, stale sessions, CSRF and image upload', async (t) => {
     await reset();
+    await createUser('owner');
     Object.assign(process.env, config, {
       NODE_ENV: 'test', DATABASE_URL: databaseUrl.toString(), SESSION_SECRET: 'integration-test-session-secret-32-characters',
       COOKIE_SECURE: 'false', TRUST_PROXY: 'false', MAX_ACCOUNTS: '3', MAX_PENDING_REQUESTS: '10',
@@ -157,17 +159,17 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
     assert.equal((await publicUser.request('/register')).status, 200);
     // More pending requests than available accounts must still be accepted.
     for (const username of ['admin', 'guestone', 'guesttwo', 'guestthree', 'guestfour']) {
-      const result = await publicUser.request('/register', { method: 'POST', form: { username, email: `${username}@example.com`, password: config.ADMIN_PASSWORD, passwordConfirm: config.ADMIN_PASSWORD } });
+      const result = await publicUser.request('/register', { method: 'POST', form: { username, email: `${username}@example.com`, password: loginPassword, passwordConfirm: loginPassword } });
       assert.equal(result.status, 200, result.body);
     }
-    const blocked = await publicUser.request('/register', { method: 'POST', form: { username: 'guestsix', email: 'six@example.com', password: config.ADMIN_PASSWORD, passwordConfirm: config.ADMIN_PASSWORD } });
+    const blocked = await publicUser.request('/register', { method: 'POST', form: { username: 'guestsix', email: 'six@example.com', password: loginPassword, passwordConfirm: loginPassword } });
     assert.equal(blocked.status, 429);
     assert.ok(Number(blocked.headers.get('retry-after')) > 0);
     await pool.query("UPDATE image_drive.account_requests SET created_at = CURRENT_TIMESTAMP - INTERVAL '2 days' WHERE username = 'guestfour'");
     const expired = (await pool.query("SELECT id FROM image_drive.account_requests WHERE username = 'guestfour'")).rows[0];
     const owner = browser();
     await owner.request('/login');
-    assert.equal((await owner.request('/login', { method: 'POST', form: { identity: 'owner', password: config.ADMIN_PASSWORD } })).status, 302);
+    assert.equal((await owner.request('/login', { method: 'POST', form: { identity: 'owner', password: loginPassword } })).status, 302);
     const adminPage = await owner.request('/admin/users');
     assert.equal(adminPage.status, 200);
     assert.equal(adminPage.body.includes('guestfour'), false);
@@ -179,7 +181,7 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
     assert.equal(ordinary.is_admin, false);
     const guest = browser();
     await guest.request('/login');
-    assert.equal((await guest.request('/login', { method: 'POST', form: { identity: 'admin', password: config.ADMIN_PASSWORD } })).status, 302);
+    assert.equal((await guest.request('/login', { method: 'POST', form: { identity: 'admin', password: loginPassword } })).status, 302);
     assert.equal((await guest.request('/drive')).status, 200);
     assert.equal((await guest.request('/admin/users')).status, 403);
     await pool.query("UPDATE image_drive.sessions SET sess = jsonb_set(sess, '{user,is_admin}', 'true') WHERE sess #>> '{user,id}' = $1", [ordinary.id]);
@@ -205,7 +207,7 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
       await pool.query('INSERT INTO image_drive.account_requests (id, username, email, password_hash) VALUES ($1, $2, $3, $4)', [crypto.randomUUID(), `queued${i}`, `queued${i}@example.com`, secureHash]);
     }
     await pool.query('DELETE FROM image_drive.rate_limits');
-    const registration = { username: 'guestfour', email: 'guestfour@example.com', password: config.ADMIN_PASSWORD, passwordConfirm: config.ADMIN_PASSWORD };
+    const registration = { username: 'guestfour', email: 'guestfour@example.com', password: loginPassword, passwordConfirm: loginPassword };
     const queueFull = await publicUser.request('/register', { method: 'POST', form: registration });
     assert.equal(queueFull.status, 429);
     assert.match(queueFull.body, /Danh sách chờ/);
@@ -220,7 +222,7 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
     await pool.query('ALTER TABLE image_drive.rate_limits RENAME TO unavailable_rate_limits');
     const log = t.mock.method(console, 'error', () => {});
     try {
-      const result = await owner.request('/login', { method: 'POST', form: { identity: 'owner', password: config.ADMIN_PASSWORD } });
+      const result = await owner.request('/login', { method: 'POST', form: { identity: 'owner', password: loginPassword } });
       assert.equal(result.status, 503);
     } finally {
       log.mock.restore();

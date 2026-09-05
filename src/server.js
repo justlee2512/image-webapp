@@ -11,7 +11,7 @@ const archiver = require('archiver');
 const sharp = require('sharp');
 const pool = require('./db');
 const PgSessionStore = require('./pg-session-store');
-const { getAdminBootstrapConfig, ensureAdminBootstrap, isAdminUser, validateAccountInput, validatePasswordChangeInput } = require('./admin');
+const { ensureAdminBootstrap, isAdminUser, validateAccountInput, validatePasswordChangeInput } = require('./admin');
 const { getAssetVersion, applyCacheHeaders } = require('./cache');
 const { setFlash, clearFlash } = require('./flash');
 const { ensureCsrfToken, csrfProtection, sendSessionExpired } = require('./security');
@@ -31,8 +31,6 @@ const sessionTtlMs = Number(process.env.SESSION_IDLE_TIMEOUT_MS || process.env.S
 if (process.env.NODE_ENV === 'production' && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
   throw new Error('SESSION_SECRET phải được cấu hình giống nhau trên tất cả pod và dài ít nhất 32 ký tự.');
 }
-getAdminBootstrapConfig();
-
 class Semaphore {
   constructor(limit) { this.limit = limit; this.active = 0; this.waiters = []; }
   acquire() {

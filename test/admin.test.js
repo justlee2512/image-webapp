@@ -16,12 +16,6 @@ test('never grants admin from a username, email or legacy role', () => {
   }
 });
 
-test('rejects missing, default, placeholder and oversized bootstrap passwords', () => {
-  for (const password of ['', 'Admin@123456', 'short', 'replace-this-with-a-unique-password-of-12-characters-or-more', 'é'.repeat(37)]) {
-    assert.throws(() => getAdminBootstrapConfig({ ADMIN_PASSWORD: password }), /ADMIN_PASSWORD/);
-  }
-});
-
 test('validates create-account input for admins and regular users', () => {
   const regularResult = validateAccountInput({ username: 'guest', email: 'guest@example.com', password: 'Secret123!', passwordConfirm: 'Secret123!' }, { maxAccounts: 1, currentCount: 1, isAdmin: false });
   assert.equal(regularResult.ok, false);
@@ -45,13 +39,11 @@ test('validates password changes', () => {
 test('uses environment values for the bootstrap admin', () => {
   const config = getAdminBootstrapConfig({
     ADMIN_USERNAME: 'root',
-    ADMIN_EMAIL: 'root@example.com',
-    ADMIN_PASSWORD: 'UniqueSecret123!'
+    ADMIN_EMAIL: 'root@example.com'
   });
 
   assert.deepEqual(config, {
     username: 'root',
-    email: 'root@example.com',
-    password: 'UniqueSecret123!'
+    email: 'root@example.com'
   });
 });
