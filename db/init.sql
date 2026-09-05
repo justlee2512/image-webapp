@@ -5,10 +5,21 @@ CREATE TABLE IF NOT EXISTS image_drive.users (
   username VARCHAR(30) NOT NULL,
   email VARCHAR(255) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  is_admin BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT users_username_unique UNIQUE (username),
   CONSTRAINT users_email_unique UNIQUE (email)
 );
+
+ALTER TABLE image_drive.users
+  ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS image_drive.rate_limits (
+  key VARCHAR(64) PRIMARY KEY,
+  attempts INTEGER NOT NULL,
+  reset_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS rate_limits_reset_idx ON image_drive.rate_limits (reset_at);
 
 CREATE TABLE IF NOT EXISTS image_drive.account_requests (
   id UUID PRIMARY KEY,

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ensureCsrfToken, csrfProtection, LoginRateLimiter } = require('../src/security');
+const { ensureCsrfToken, csrfProtection } = require('../src/security');
 
 function responseStub() {
   return {
@@ -9,7 +9,8 @@ function responseStub() {
     status(code) { this.statusCode = code; return this; },
     redirect(location) { this.redirectedTo = location; return this; },
     send(message) { this.body = message; return this; },
-    json(value) { this.body = value; return this; }
+    json(value) { this.body = value; return this; },
+    render(view) { this.view = view; return this; }
   };
 }
 
@@ -36,11 +37,13 @@ test('rejects invalid CSRF tokens and accepts a valid token', () => {
   assert.equal(res.statusCode, 403);
 });
 
-test('redirects signed-out protected form submissions to login', () => {
+test('shows an expiry page for signed-out protected form submissions', () => {
   const req = { method: 'POST', path: '/logout', session: {}, body: { _csrf: 'stale' }, get: () => undefined };
   const res = responseStub();
   csrfProtection(req, res, () => assert.fail('must not call next'));
-  assert.equal(res.redirectedTo, '/login');
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.view, 'session-expired');
+  assert.equal(res.redirectedTo, undefined);
 });
 
 test('returns a login redirect for signed-out AJAX requests', () => {
@@ -54,13 +57,11 @@ test('returns a login redirect for signed-out AJAX requests', () => {
   assert.deepEqual(res.body, { ok: false, message: 'Phiên đăng nhập đã hết hạn.', redirectTo: '/login' });
 });
 
-test('rate limits repeated failed logins and clears successful identities', () => {
-  const limiter = new LoginRateLimiter({ windowMs: 60_000, maxAttempts: 2 });
-  const req = { ip: '127.0.0.1' };
-  limiter.fail(req, 'User');
-  assert.equal(limiter.check(req, 'user').allowed, true);
-  limiter.fail(req, 'user');
-  assert.equal(limiter.check(req, 'USER').allowed, false);
-  limiter.clear(req, 'user');
-  assert.equal(limiter.check(req, 'user').allowed, true);
+test('rejects Unicode CSRF tokens without throwing', () => {
+  for (const token of ['é'.repeat(43), '😀'.repeat(21) + 'a', '', ['bad', 'token']]) {
+    const req = { method: 'POST', path: '/login', session: { csrfToken: 'a'.repeat(43) }, body: { _csrf: token }, get: () => undefined };
+    const res = responseStub();
+    assert.doesNotThrow(() => csrfProtection(req, res, () => assert.fail('must not call next')));
+    assert.equal(res.statusCode, 403);
+  }
 });

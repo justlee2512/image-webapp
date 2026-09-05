@@ -1,3 +1,7 @@
+function reloadIfSessionActive() {
+  if (!window.sessionExpiry.isExpired()) window.location.reload();
+}
+
 const input = document.querySelector('#image-input');
 const uploadForm = document.querySelector('.upload-form');
 const progressBox = document.querySelector('#upload-progress');
@@ -16,9 +20,9 @@ function showToast(message, type = 'error') {
   }, 3200);
 }
 
-function redirectIfSessionExpired(response, result) {
-  if (response.status !== 401 || !result?.redirectTo) return false;
-  window.location.assign(result.redirectTo);
+function showIfSessionExpired(response) {
+  if (response.status !== 401) return false;
+  window.sessionExpiry.show();
   return true;
 }
 
@@ -50,10 +54,10 @@ async function submitAjaxForm(event) {
       body
     });
     const result = await response.json().catch(() => null);
-    if (redirectIfSessionExpired(response, result)) return;
+    if (showIfSessionExpired(response)) return;
     if (!response.ok || !result?.ok) throw new Error(result?.message || 'Không thể thực hiện thao tác.');
     showToast(result.message || 'Thao tác thành công.', 'success');
-    window.setTimeout(() => window.location.reload(), 300);
+    window.setTimeout(() => reloadIfSessionActive(), 300);
   } catch (error) {
     showToast(error.message || 'Không thể thực hiện thao tác.', 'error');
   }
@@ -89,8 +93,8 @@ function uploadOne(file, folderId, index, total) {
     });
     request.addEventListener('load', () => {
       if (request.status >= 200 && request.status < 300 && request.response?.ok) resolve();
-      else if (request.status === 401 && request.response?.redirectTo) {
-        window.location.assign(request.response.redirectTo);
+      else if (request.status === 401) {
+        window.sessionExpiry.show();
         reject(new Error('Phiên đăng nhập đã hết hạn.'));
       }
       else reject(new Error(request.response?.message || `Không thể tải ${file.name}.`));
@@ -126,7 +130,7 @@ if (input && uploadForm) input.addEventListener('change', async () => {
       progressPercent.textContent = `${percent}%`;
     }
     progressStatus.textContent = `Hoàn tất ${completed}/${files.length} ảnh. Đang làm mới…`;
-    window.location.reload();
+    reloadIfSessionActive();
   } catch (error) {
     progressStatus.textContent = `${error.message} Đã hoàn thành ${completed}/${files.length} ảnh.`;
     progressBox.classList.add('upload-failed');
@@ -323,11 +327,13 @@ async function downloadSelectedImages() {
       const fileName = uniqueDownloadName(item.name, reservedNames);
       const response = await fetch(`/images/${encodeURIComponent(item.id)}/download`, {
         credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
         cache: 'no-store'
       });
 
       const contentType = response.headers.get('Content-Type') || '';
-      if (response.redirected || contentType.includes('text/html')) {
+      if (response.status === 401 || response.redirected || contentType.includes('text/html')) {
+        window.sessionExpiry.show();
         throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi tiếp tục tải.');
       }
       if (!response.ok) {
@@ -462,9 +468,9 @@ folderTargets.forEach((folder) => {
     try {
       const response = await fetch('/images/move', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' }, body });
       const result = await response.json();
-      if (redirectIfSessionExpired(response, result)) return;
+      if (showIfSessionExpired(response)) return;
       if (!response.ok || !result.ok) throw new Error(result.message);
-      window.location.reload();
+      reloadIfSessionActive();
     } catch (error) { window.alert(error.message || 'Không thể di chuyển ảnh.'); }
   });
 });

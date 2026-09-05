@@ -1,19 +1,25 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isAdminUser, getAdminBootstrapConfig, ensureAdminBootstrap, validateAccountInput, validatePasswordChangeInput } = require('../src/admin');
+const { isAdminUser, getAdminBootstrapConfig, validateAccountInput, validatePasswordChangeInput } = require('../src/admin');
 
 test('detects admin users', () => {
   assert.equal(isAdminUser({ is_admin: true }), true);
-  assert.equal(isAdminUser({ role: 'admin' }), true);
+  assert.equal(isAdminUser({ role: 'admin' }), false);
   assert.equal(isAdminUser({ is_admin: false }), false);
   assert.equal(isAdminUser(null), false);
 });
 
-test('treats configured admin identities as admins without a DB flag', () => {
-  const env = { ADMIN_USERNAME: 'admin', ADMIN_EMAIL: 'admin@example.com', ADMIN_PASSWORD: 'Secret123!' };
-  assert.equal(isAdminUser({ username: 'admin' }, env), true);
-  assert.equal(isAdminUser({ email: 'admin@example.com' }, env), true);
-  assert.equal(isAdminUser({ username: 'guest' }, env), false);
+test('never grants admin from a username, email or legacy role', () => {
+  const env = { ADMIN_USERNAME: 'owner', ADMIN_EMAIL: 'owner@example.com' };
+  for (const user of [{ username: 'admin' }, { username: 'owner' }, { email: 'owner@example.com' }, { role: 'admin' }, { is_admin: 'true' }]) {
+    assert.equal(isAdminUser(user, env), false);
+  }
+});
+
+test('rejects missing, default, placeholder and oversized bootstrap passwords', () => {
+  for (const password of ['', 'Admin@123456', 'short', 'replace-this-with-a-unique-password-of-12-characters-or-more', 'é'.repeat(37)]) {
+    assert.throws(() => getAdminBootstrapConfig({ ADMIN_PASSWORD: password }), /ADMIN_PASSWORD/);
+  }
 });
 
 test('validates create-account input for admins and regular users', () => {
@@ -40,39 +46,12 @@ test('uses environment values for the bootstrap admin', () => {
   const config = getAdminBootstrapConfig({
     ADMIN_USERNAME: 'root',
     ADMIN_EMAIL: 'root@example.com',
-    ADMIN_PASSWORD: 'Secret123!'
+    ADMIN_PASSWORD: 'UniqueSecret123!'
   });
 
   assert.deepEqual(config, {
     username: 'root',
     email: 'root@example.com',
-    password: 'Secret123!'
+    password: 'UniqueSecret123!'
   });
-});
-
-test('does not overwrite an existing admin password during bootstrap', async () => {
-  let updateCalled = false;
-  const pool = {
-    async query(sql) {
-      if (sql.includes('FROM image_drive.users')) {
-        return { rowCount: 1, rows: [{ id: 7, username: 'admin', email: 'admin@example.com', password_hash: 'existing-hash' }] };
-      }
-      if (sql.includes('UPDATE image_drive.users')) {
-        updateCalled = true;
-        return { rowCount: 1 };
-      }
-      throw new Error(`Unexpected query: ${sql}`);
-    }
-  };
-
-  const result = await ensureAdminBootstrap(pool, {
-    ADMIN_USERNAME: 'admin',
-    ADMIN_EMAIL: 'admin@example.com',
-    ADMIN_PASSWORD: 'NewPassword123!'
-  });
-
-  assert.equal(updateCalled, false);
-  assert.equal(result.is_admin, true);
-  assert.equal(result.username, 'admin');
-  assert.equal(result.email, 'admin@example.com');
 });

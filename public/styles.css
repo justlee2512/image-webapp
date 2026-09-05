@@ -1862,3 +1862,27 @@ body.lightbox-open {
   background: #f3f8f4;
 }
 
+.session-expiry-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f3f8f4;
+}
+
+.session-expiry-card {
+  width: min(440px, calc(100vw - 48px));
+  box-sizing: border-box;
+  padding: 32px;
+  border: 1px solid #dce5de;
+  border-radius: 20px;
+  background: #fff;
+  color: #20392d;
+  box-shadow: 0 24px 80px #142c2933;
+  text-align: center;
+}
+
+dialog.session-expiry-card { margin: auto; }
+.session-expiry-card::backdrop { background: #142c29a6; }
+.session-expiry-card h2 { margin: 0 0 16px; font-size: 24px; }
+.session-expiry-card p { margin: 0 0 24px; line-height: 1.6; }

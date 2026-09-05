@@ -11,26 +11,27 @@ const archiver = require('archiver');
 const sharp = require('sharp');
 const pool = require('./db');
 const PgSessionStore = require('./pg-session-store');
-const { ensureAdminBootstrap, isAdminUser, validateAccountInput, validatePasswordChangeInput } = require('./admin');
+const { getAdminBootstrapConfig, ensureAdminBootstrap, isAdminUser, validateAccountInput, validatePasswordChangeInput } = require('./admin');
 const { getAssetVersion, applyCacheHeaders } = require('./cache');
 const { setFlash, clearFlash } = require('./flash');
-const { ensureCsrfToken, csrfProtection, LoginRateLimiter } = require('./security');
+const { ensureCsrfToken, csrfProtection, sendSessionExpired } = require('./security');
+const { positiveInteger, ensureRateLimitSchema, PgRateLimiter } = require('./limits');
 
 sharp.cache(false);
 sharp.concurrency(1);
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const maxAccounts = Number(process.env.MAX_ACCOUNTS || 5);
-const maxFileSizeMb = Number(process.env.MAX_FILE_SIZE_MB || 30);
+const maxAccounts = positiveInteger(process.env.MAX_ACCOUNTS, 5, 'MAX_ACCOUNTS');
+const maxPendingRequests = positiveInteger(process.env.MAX_PENDING_REQUESTS, 100, 'MAX_PENDING_REQUESTS');
+const accountRequestTtlMs = positiveInteger(process.env.ACCOUNT_REQUEST_TTL_MS, 86400000, 'ACCOUNT_REQUEST_TTL_MS');
+const maxFileSizeMb = positiveInteger(process.env.MAX_FILE_SIZE_MB, 30, 'MAX_FILE_SIZE_MB');
 const sessionTtlMs = Number(process.env.SESSION_IDLE_TIMEOUT_MS || process.env.SESSION_TTL_MS || 1000 * 60 * 15);
 
 if (process.env.NODE_ENV === 'production' && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
   throw new Error('SESSION_SECRET phải được cấu hình giống nhau trên tất cả pod và dài ít nhất 32 ký tự.');
 }
-if (process.env.NODE_ENV === 'production' && (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD === 'Admin@123456' || process.env.ADMIN_PASSWORD.length < 12)) {
-  console.warn('Cảnh báo bảo mật: nên cấu hình ADMIN_PASSWORD riêng và dài ít nhất 12 ký tự trong production.');
-}
+getAdminBootstrapConfig();
 
 class Semaphore {
   constructor(limit) { this.limit = limit; this.active = 0; this.waiters = []; }
@@ -94,13 +95,52 @@ app.use(session({
     maxAge: sessionTtlMs
   }
 }));
+// Reading status must not roll the cookie or touch/extend the server-side session.
+app.get('/session-status', async (req, res) => {
+  const user = req.session?.user;
+  const sid = req.sessionID;
+  req.session = undefined;
+  if (!user) return res.status(401).json({ active: false });
+  try {
+    const result = await pool.query(
+      `SELECT EXTRACT(EPOCH FROM (expire - clock_timestamp())) * 1000 AS remaining_ms
+         FROM image_drive.sessions WHERE sid = $1 AND expire > clock_timestamp()`, [sid]
+    );
+    if (!result.rowCount) return res.status(401).json({ active: false });
+    return res.json({ active: true, remainingMs: Math.max(0, Number(result.rows[0].remaining_ms)) });
+  } catch (error) {
+    console.error(error);
+    return res.status(503).json({ message: 'Không thể kiểm tra phiên đăng nhập.' });
+  }
+});
 app.use(ensureCsrfToken);
 app.use(csrfProtection);
 
-const loginLimiter = new LoginRateLimiter({
-  windowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
-  maxAttempts: Number(process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS || 10)
+const loginLimiter = new PgRateLimiter({
+  pool, scope: 'login',
+  windowMs: process.env.LOGIN_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000,
+  maxAttempts: process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS ?? 10,
+  ipMaxAttempts: process.env.LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS ?? 100
 });
+const registrationLimiter = new PgRateLimiter({
+  pool, scope: 'register',
+  windowMs: process.env.REGISTER_RATE_LIMIT_WINDOW_MS ?? 60 * 60 * 1000,
+  maxAttempts: process.env.REGISTER_RATE_LIMIT_MAX_ATTEMPTS ?? 5
+});
+
+function limitAuthRequests(limiter, view) {
+  return async (req, res, next) => {
+    try {
+      const limit = await limiter.consume(req, view === 'login' ? req.body?.identity || '' : undefined);
+      if (limit.allowed) return next();
+      res.set('Retry-After', String(limit.retryAfterSeconds));
+      return renderAuth(res, view, { status: 429, error: 'Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau.' });
+    } catch (error) {
+      console.error(error);
+      return renderAuth(res, view, { status: 503, error: 'Không thể xử lý yêu cầu lúc này.' });
+    }
+  };
+}
 
 function establishSession(req, user) {
   return new Promise((resolve, reject) => {
@@ -115,16 +155,23 @@ function establishSession(req, user) {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: maxFileSizeMb * 1024 * 1024 },
+  // Busboy emits partsLimit at the threshold; three valid parts need a threshold of four.
+  limits: { fileSize: maxFileSizeMb * 1024 * 1024, files: 1, fields: 2, parts: 4, fieldSize: 1024 },
   fileFilter: (_req, file, done) => {
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     done(allowed.includes(file.mimetype) ? null : new Error('Chỉ hỗ trợ JPG, PNG, GIF và WebP.'), allowed.includes(file.mimetype));
   }
 });
 
-function authRequired(req, res, next) {
-  if (!req.session.user) return res.redirect('/login');
-  next();
+async function authRequired(req, res, next) {
+  if (!req.session.user) return sendSessionExpired(req, res);
+  try {
+    // Never trust an old session's role; upgrades and role revocations apply immediately.
+    const result = await pool.query('SELECT id, username, email, is_admin FROM image_drive.users WHERE id = $1', [req.session.user.id]);
+    if (!result.rowCount) return req.session.destroy(() => sendSessionExpired(req, res));
+    req.session.user = result.rows[0];
+    next();
+  } catch (error) { next(error); }
 }
 
 function renderAuth(res, view, values = {}) {
@@ -182,29 +229,32 @@ app.get('/health', async (_req, res) => {
 });
 
 app.get('/register', (_req, res) => renderAuth(res, 'register'));
-app.post('/register', async (req, res) => {
+app.post('/register', limitAuthRequests(registrationLimiter, 'register'), async (req, res) => {
   const username = String(req.body.username || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
   const passwordConfirm = String(req.body.passwordConfirm || '');
   const form = { username, email };
-  if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) return renderAuth(res, 'register', { status: 400, error: 'Tên tài khoản cần 3–30 ký tự, chỉ gồm chữ, số và dấu gạch dưới.', form });
-  if (!/^\S+@\S+\.\S+$/.test(email)) return renderAuth(res, 'register', { status: 400, error: 'Email không hợp lệ.', form });
-  if (password.length < 8) return renderAuth(res, 'register', { status: 400, error: 'Mật khẩu cần ít nhất 8 ký tự.', form });
-  if (password !== passwordConfirm) return renderAuth(res, 'register', { status: 400, error: 'Hai mật khẩu không trùng khớp.', form });
+  const validation = validateAccountInput({ username, email, password, passwordConfirm });
+  if (!validation.ok) return renderAuth(res, 'register', { status: 400, error: validation.error, form });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query("SELECT pg_advisory_xact_lock(hashtext('image_drive_account_limit'))");
+    await client.query("DELETE FROM image_drive.account_requests WHERE created_at <= CURRENT_TIMESTAMP - $1 * INTERVAL '1 millisecond'", [accountRequestTtlMs]);
     const capacity = await client.query(`
       SELECT
         (SELECT COUNT(*) FROM image_drive.users)::int AS users,
         (SELECT COUNT(*) FROM image_drive.account_requests)::int AS requests
     `);
-    if (capacity.rows[0].users + capacity.rows[0].requests >= maxAccounts) {
+    if (capacity.rows[0].users >= maxAccounts) {
       await client.query('ROLLBACK');
-      return renderAuth(res, 'register', { status: 403, error: `Hệ thống đã đủ ${maxAccounts} tài khoản hoặc yêu cầu đang chờ duyệt.`, form });
+      return renderAuth(res, 'register', { status: 403, error: `Hệ thống đã đủ ${maxAccounts} tài khoản.`, form });
+    }
+    if (capacity.rows[0].requests >= maxPendingRequests) {
+      await client.query('COMMIT');
+      return renderAuth(res, 'register', { status: 429, error: 'Danh sách chờ đang đầy. Vui lòng thử lại sau.', form });
     }
     const conflict = await client.query(
       `SELECT 1 FROM image_drive.users WHERE lower(username) = lower($1) OR lower(email) = lower($2)
@@ -233,22 +283,15 @@ app.post('/register', async (req, res) => {
 });
 
 app.get('/login', (_req, res) => renderAuth(res, 'login'));
-app.post('/login', async (req, res) => {
+app.post('/login', limitAuthRequests(loginLimiter, 'login'), async (req, res) => {
   const identity = String(req.body.identity || '').trim();
   const password = String(req.body.password || '');
-  const rateLimit = loginLimiter.check(req, identity);
-  if (!rateLimit.allowed) {
-    res.set('Retry-After', String(rateLimit.retryAfterSeconds));
-    return renderAuth(res, 'login', { status: 429, error: 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau.', form: { identity } });
-  }
   try {
-    const result = await pool.query('SELECT id, username, email, password_hash FROM image_drive.users WHERE lower(email) = lower($1) OR lower(username) = lower($1)', [identity]);
+    const result = await pool.query('SELECT id, username, email, password_hash, is_admin FROM image_drive.users WHERE lower(email) = lower($1) OR lower(username) = lower($1)', [identity]);
     const user = result.rows[0];
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-      loginLimiter.fail(req, identity);
       return renderAuth(res, 'login', { status: 401, error: 'Thông tin đăng nhập không đúng.', form: { identity } });
     }
-    loginLimiter.clear(req, identity);
     await establishSession(req, { id: user.id, username: user.username, email: user.email, is_admin: isAdminUser(user) });
     res.redirect('/drive');
   } catch (error) { console.error(error); renderAuth(res, 'login', { status: 500, error: 'Không thể đăng nhập lúc này.' }); }
@@ -261,7 +304,7 @@ app.get('/admin/users', authRequired, async (req, res) => {
   try {
     const [usersResult, requestsResult] = await Promise.all([
       pool.query('SELECT id, username, email, created_at FROM image_drive.users ORDER BY username'),
-      pool.query('SELECT id, username, email, created_at FROM image_drive.account_requests ORDER BY created_at')
+      pool.query("SELECT id, username, email, created_at FROM image_drive.account_requests WHERE created_at > CURRENT_TIMESTAMP - $1 * INTERVAL '1 millisecond' ORDER BY created_at", [accountRequestTtlMs])
     ]);
     res.render('admin-users', { user: req.session.user, users: usersResult.rows, accountRequests: requestsResult.rows, error: req.session.error || null, success: req.session.success || null, maxAccounts });
     clearFlash(req);
@@ -306,8 +349,8 @@ app.post('/admin/account-requests/:id/approve', authRequired, async (req, res) =
       return res.redirect('/admin/users');
     }
     const requestResult = await client.query(
-      'SELECT id, username, email, password_hash FROM image_drive.account_requests WHERE id = $1 FOR UPDATE',
-      [req.params.id]
+      "SELECT id, username, email, password_hash FROM image_drive.account_requests WHERE id = $1 AND created_at > CURRENT_TIMESTAMP - $2 * INTERVAL '1 millisecond' FOR UPDATE",
+      [req.params.id, accountRequestTtlMs]
     );
     const accountRequest = requestResult.rows[0];
     if (!accountRequest) {
@@ -526,7 +569,9 @@ app.post('/images', authRequired, (req, res) => {
         [crypto.randomUUID(), req.session.user.id, folderId, uploadedFile.originalname.slice(0, 255), uploadedFile.mimetype, uploadedFile.size, uploadedFile.buffer, thumbnail]
       );
       return finish(true, 'Đã tải lên 1 ảnh.');
-    } catch (dbError) { console.error(dbError); return finish(false, 'Không thể lưu ảnh.'); }
+    } catch (dbError) {
+      console.error(dbError); return finish(false, 'Không thể lưu ảnh.');
+    }
   }));
 });
 
@@ -676,6 +721,7 @@ async function start() {
   try {
     await sessionStore.ready;
     await ensureAccountRequestsSchema();
+    await ensureRateLimitSchema(pool);
     const admin = await ensureAdminBootstrap(pool);
     console.log(`Admin bootstrap ready: ${admin.username} (${admin.email})`);
     app.listen(port, '0.0.0.0', () => console.log(`Image Drive running at http://localhost:${port}`));
@@ -685,4 +731,6 @@ async function start() {
   }
 }
 
-start();
+if (require.main === module) start();
+
+module.exports = { app, start };
