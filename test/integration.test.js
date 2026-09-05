@@ -7,20 +7,31 @@ const bcrypt = require('bcryptjs');
 const sharp = require('sharp');
 const { ensureAdminBootstrap } = require('../src/admin');
 const { ensureRateLimitSchema, PgRateLimiter } = require('../src/limits');
+const { settleAll, trackPoolShutdown } = require('../test-support/async-cleanup');
 
 test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_URL }, async (t) => {
   // Only a freshly created disposable database is modified; never use DATABASE_URL.
   const maintenance = new Pool({ connectionString: process.env.TEST_DATABASE_URL });
+  const closeMaintenance = trackPoolShutdown(maintenance);
   const databaseName = `image_drive_test_${crypto.randomBytes(8).toString('hex')}`;
+  let databaseCreated = false;
+  let closePool;
+  t.after(async () => {
+    try {
+      if (closePool) await closePool();
+    } finally {
+      try {
+        // Never kill leftover connections: expose a cleanup bug instead.
+        if (databaseCreated) await maintenance.query(`DROP DATABASE "${databaseName}"`);
+      } finally { await closeMaintenance(); }
+    }
+  });
   await maintenance.query(`CREATE DATABASE "${databaseName}"`);
+  databaseCreated = true;
   const databaseUrl = new URL(process.env.TEST_DATABASE_URL);
   databaseUrl.pathname = `/${databaseName}`;
   const pool = new Pool({ connectionString: databaseUrl.toString(), max: 10 });
-  t.after(async () => {
-    await pool.end();
-    await maintenance.query(`DROP DATABASE "${databaseName}" WITH (FORCE)`);
-    await maintenance.end();
-  });
+  closePool = trackPoolShutdown(pool);
   await pool.query(await fs.readFile(require.resolve('../db/init.sql'), 'utf8'));
   const config = { ADMIN_USERNAME: 'owner', ADMIN_EMAIL: 'owner@example.com', ADMIN_PASSWORD: 'UniqueAdminPassword123!' };
   const oldDefaultHash = await bcrypt.hash('Admin@123456', 4);
@@ -58,7 +69,7 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
 
   await t.test('concurrent bootstrap creates one admin and preserves a changed secure password', async () => {
     await reset();
-    const admins = await Promise.all([ensureAdminBootstrap(pool, config), ensureAdminBootstrap(pool, config)]);
+    const admins = await settleAll([ensureAdminBootstrap(pool, config), ensureAdminBootstrap(pool, config)]);
     assert.equal(admins[0].id, admins[1].id);
     const changedHash = await bcrypt.hash('ChangedSecurePassword123!', 4);
     await pool.query('UPDATE image_drive.users SET password_hash = $1 WHERE id = $2', [changedHash, admins[0].id]);
@@ -68,15 +79,15 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
 
   await t.test('rate limits concurrent requests across instances, IPs and rotated identities', async () => {
     await reset();
-    await Promise.all([ensureRateLimitSchema(pool), ensureRateLimitSchema(pool)]);
+    await settleAll([ensureRateLimitSchema(pool), ensureRateLimitSchema(pool)]);
     const options = { pool, scope: 'test', windowMs: 60000, maxAttempts: 2, ipMaxAttempts: 3 };
     const a = new PgRateLimiter(options);
     const b = new PgRateLimiter(options);
-    const results = await Promise.all(Array.from({ length: 8 }, (_, index) => (index % 2 ? a : b).consume({ ip: `127.0.0.${index}` }, 'Guest')));
+    const results = await settleAll(Array.from({ length: 8 }, (_, index) => (index % 2 ? a : b).consume({ ip: `127.0.0.${index}` }, 'Guest')));
     assert.equal(results.filter((r) => r.allowed).length, 2);
     assert.ok(results.filter((r) => !r.allowed).every((r) => r.retryAfterSeconds > 0));
     await pool.query('DELETE FROM image_drive.rate_limits');
-    const rotating = await Promise.all(Array.from({ length: 8 }, (_, index) => a.consume({ ip: '127.0.0.1' }, `user${index}`)));
+    const rotating = await settleAll(Array.from({ length: 8 }, (_, index) => a.consume({ ip: '127.0.0.1' }, `user${index}`)));
     assert.equal(rotating.filter((r) => r.allowed).length, 3);
     assert.equal((await pool.query('SELECT * FROM image_drive.rate_limits')).rowCount, 4);
   });
@@ -105,12 +116,14 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
     const admin = await ensureAdminBootstrap(pool, config);
     const { app } = require('../src/server');
     const appPool = require('../src/db');
+    const closeAppPool = trackPoolShutdown(appPool);
     const server = app.listen(0, '127.0.0.1');
-    await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
     t.after(async () => {
-      await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-      await appPool.end();
+      try {
+        if (server.listening) await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      } finally { await closeAppPool(); }
     });
+    await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
     const base = `http://127.0.0.1:${server.address().port}`;
     function browser() {
       let cookie = '';
