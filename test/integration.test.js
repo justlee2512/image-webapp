@@ -249,6 +249,17 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
     assert.match(expiredPost.body, /Continue/);
     assert.equal((await pool.query("SELECT id FROM image_drive.folders WHERE name = 'expired-folder'")).rowCount, 0);
     assert.equal((await guest.request('/login')).status, 200);
+    // Expire the anonymous session while the login form is still open.
+    await pool.query("UPDATE image_drive.sessions SET expire = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE sess -> 'user' IS NULL");
+    const staleLogin = await guest.request('/login', { method: 'POST', form: { identity: 'guest', password: loginPassword } });
+    assert.equal(staleLogin.status, 303);
+    assert.equal(staleLogin.headers.get('location'), '/login');
+    assert.equal((await guest.request(staleLogin.headers.get('location'))).status, 200);
+    const relogin = await guest.request('/login', { method: 'POST', form: { identity: ordinary.username, password: loginPassword } });
+    assert.equal(relogin.status, 302);
+    assert.equal(relogin.headers.get('location'), '/drive');
+    assert.equal((await guest.request('/drive')).status, 200);
+    assert.equal((await guest.request('/session-status')).status, 200);
     await pool.query('UPDATE image_drive.users SET is_admin = FALSE WHERE id = $1', [admin.id]);
     assert.equal((await owner.request('/admin/users')).status, 403);
   });

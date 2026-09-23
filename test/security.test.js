@@ -7,7 +7,7 @@ function responseStub() {
     locals: {},
     statusCode: 200,
     status(code) { this.statusCode = code; return this; },
-    redirect(location) { this.redirectedTo = location; return this; },
+    redirect(status, location) { this.statusCode = status; this.redirectedTo = location; return this; },
     send(message) { this.body = message; return this; },
     json(value) { this.body = value; return this; },
     render(view) { this.view = view; return this; }
@@ -62,6 +62,33 @@ test('rejects Unicode CSRF tokens without throwing', () => {
     const req = { method: 'POST', path: '/login', session: { csrfToken: 'a'.repeat(43) }, body: { _csrf: token }, get: () => undefined };
     const res = responseStub();
     assert.doesNotThrow(() => csrfProtection(req, res, () => assert.fail('must not call next')));
-    assert.equal(res.statusCode, 403);
+    assert.equal(res.statusCode, 303);
+    assert.equal(res.redirectedTo, '/login');
   }
+});
+
+test('stale public auth forms recover with a GET and a fresh token', () => {
+  for (const path of ['/login', '/register']) {
+    const req = { method: 'POST', path, session: {}, body: { _csrf: 'expired' }, get: () => undefined };
+    const res = responseStub();
+    ensureCsrfToken(req, res, () => {});
+    csrfProtection(req, res, () => assert.fail('stale form must not be processed'));
+    assert.equal(res.statusCode, 303);
+    assert.equal(res.redirectedTo, path);
+    req.method = 'GET';
+    ensureCsrfToken(req, res, () => {});
+    req.method = 'POST';
+    req.body._csrf = res.locals.csrfToken;
+    let accepted = false;
+    csrfProtection(req, responseStub(), () => { accepted = true; });
+    assert.equal(accepted, true);
+  }
+});
+
+test('stale AJAX login requests still return a CSRF error', () => {
+  const req = { method: 'POST', path: '/login', session: {}, body: {}, get: (name) => name === 'X-Requested-With' ? 'XMLHttpRequest' : undefined };
+  const res = responseStub();
+  csrfProtection(req, res, () => assert.fail('must not call next'));
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.redirectedTo, undefined);
 });

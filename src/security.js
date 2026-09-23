@@ -33,6 +33,9 @@ function csrfProtection(req, res, next) {
   if (req.get('X-Requested-With') === 'XMLHttpRequest' || req.get('X-Upload-Queue')) {
     return res.status(403).json({ ok: false, message: 'Phiên bảo mật đã hết hạn. Vui lòng tải lại trang.' });
   }
+  // A reload of a failed POST resubmits the stale token. Start a fresh GET so
+  // the auth form receives the current session token without replaying credentials.
+  if (isPublicAuthRequest) return res.redirect(303, req.path);
   return res.status(403).send('Yêu cầu không hợp lệ hoặc phiên bảo mật đã hết hạn.');
 }
 
