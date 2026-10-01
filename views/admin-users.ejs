@@ -9,6 +9,7 @@
   <script src="/session-expiry.js?<%= assetVersion %>" defer></script>
 </head>
 <body class="auth-page">
+  <%- include("partials/scene") %>
   <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <header class="auth-header"><a class="brand" href="/drive"><span class="brand-mark">R</span><span>Richard Le</span></a><%- include("partials/theme-toggle") %></header>
   <main class="auth-shell admin-shell">

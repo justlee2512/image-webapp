@@ -1996,15 +1996,15 @@ dialog.session-expiry-card { margin: auto; }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --paper: #111916;
-  --surface: #1a2420;
-  --cream: #202d26;
-  --ink: #e4ede6;
+  --paper: #000000;
+  --surface: #111111;
+  --cream: #191919;
+  --ink: #eeeeee;
   --forest: #a3d2b4;
   --forest-dark: #bce1c8;
-  --sage: #2b4033;
-  --muted: #a1b3a7;
-  --line: #34443a;
+  --sage: #252525;
+  --muted: #aaaaaa;
+  --line: #303030;
   --danger: #f1a29b;
   --danger-soft: #432d2b;
   --on-accent: #183024;
@@ -2095,7 +2095,7 @@ input::placeholder { color: var(--muted); opacity: 1; }
 input[type="checkbox"] { accent-color: var(--forest); }
 .session-theme { position: absolute; top: 24px; right: 24px; }
 
-/* Motion is confined to the theme switch, and only plays on interaction. */
+/* Existing day / night switch. */
 .theme-toggle {
   flex-shrink: 0;
   display: inline-flex;
@@ -2122,7 +2122,7 @@ input[type="checkbox"] { accent-color: var(--forest); }
 .theme-changing .topbar, .theme-changing .action-card, .theme-changing .folder-card,
 .theme-changing .photo-card, .theme-changing .batch-toolbar, .theme-changing input,
 .theme-changing .share-panel, .theme-changing .user-row {
-  transition: background-color .55s ease, color .55s ease, border-color .55s ease;
+  transition: background-color 1.5s ease, color 1.5s ease, border-color 1.5s ease;
 }
 .theme-changing .theme-orb, .theme-changing .theme-owl,
 .theme-changing .theme-sky, .theme-changing .theme-stars { transition: all .6s cubic-bezier(.22,.8,.25,1); }
@@ -2151,4 +2151,76 @@ input[type="checkbox"] { accent-color: var(--forest); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* The scene sits behind all controls; nothing in it captures clicks or focus. */
+body { position: relative; isolation: isolate; min-height: 100svh; }
+.page-scene { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.auth-panel { background: transparent; }
+.scene-sun, .scene-moon { position: absolute; top: 110px; right: 9vw; width: 76px; height: 76px; border-radius: 50%; }
+.scene-sun { background: #ffd15c; box-shadow: 0 0 0 14px #ffd15c12, 0 0 70px #ffd15c35; }
+.scene-cloud { position: absolute; color: #dce5e5; width: 170px; top: 120px; right: 4vw; opacity: .75; }
+.scene-cloud-two { top: 100px; right: 24vw; width: 110px; opacity: .45; }
+.scene-moon { opacity: 0; transform: translate(40px, 180px); background: #eee8d5; box-shadow: inset -17px -9px 0 #b9b4a5, 0 0 48px #f4e8c416; }
+.scene-moon::before, .scene-moon::after { content: ""; position: absolute; border-radius: 50%; background: #c9c4b440; width: 17px; height: 17px; top: 20px; left: 15px; }
+.scene-moon::after { width: 10px; height: 10px; top: 46px; left: 31px; }
+.scene-stars { position: absolute; right: 3vw; top: 80px; width: min(460px, 65vw); color: #d3cfbe; opacity: 0; }
+.scene-dusk { position: absolute; inset: 0; background: linear-gradient(170deg, #c6773020, #bc553518 45%, transparent 75%); opacity: 0; }
+.scene-owl-flight { position: absolute; right: 2vw; top: 210px; width: 100px; opacity: 0; transform: translate(180px, 80px); }
+.scene-flying-owl { display: block; width: 100%; }
+.owl-wing-left { transform-origin: 64px 65px; transform: rotate(-55deg); }
+.owl-wing-right { transform-origin: 96px 65px; transform: rotate(55deg); }
+[data-theme="dark"] .scene-sun { opacity: 0; transform: translate(-100px, 50vh); }
+[data-theme="dark"] .scene-cloud { opacity: 0; transform: translateX(-45px); }
+[data-theme="dark"] .scene-moon { opacity: 1; transform: translate(0, 0); }
+[data-theme="dark"] .scene-stars { opacity: .65; }
+[data-theme="dark"] .scene-owl-flight { opacity: 1; transform: translate(0, 0); }
+.theme-changing .scene-sun { transition: transform 1.1s ease-in, opacity .9s ease; }
+.theme-changing .scene-cloud { transition: opacity .9s ease, transform 1.4s ease; }
+.theme-changing .scene-moon { transition: transform 1.2s cubic-bezier(.22,.7,.3,1), opacity 1s ease; }
+.theme-changing[data-theme="dark"] .scene-moon { transition-delay: .65s; }
+.theme-changing .scene-stars { transition: opacity 1.5s ease; }
+.theme-changing .scene-owl-flight { transition: opacity .5s ease, transform 1s ease; }
+.theme-changing[data-theme="dark"] .scene-owl-flight { animation: owl-arrival 2.5s both; }
+.theme-changing[data-theme="dark"] .owl-wing-left { animation: wing-left .4s ease-in-out 5; }
+.theme-changing[data-theme="dark"] .owl-wing-right { animation: wing-right .4s ease-in-out 5; }
+.theme-changing .scene-dusk { animation: dusk-glow 1.8s ease both; }
+@keyframes dusk-glow { 0%, 100% { opacity: 0; } 35% { opacity: 1; } }
+@keyframes owl-arrival {
+  0%, 25% { opacity: 0; transform: translate(180px, 80px) rotate(-12deg); }
+  38% { opacity: 1; }
+  65% { transform: translate(-100px, -48px) rotate(8deg); }
+  85% { transform: translate(-24px, 8px) rotate(-4deg); }
+  100% { opacity: 1; transform: translate(0, 0) rotate(0); }
+}
+@keyframes wing-left { 0%, 100% { transform: rotate(-55deg); } 50% { transform: rotate(22deg); } }
+@keyframes wing-right { 0%, 100% { transform: rotate(55deg); } 50% { transform: rotate(-22deg); } }
+.drive-shell { padding-top: 115px; }
+.admin-shell .auth-panel { padding-top: 100px; }
+.botanical-page::before, .botanical-page::after {
+  content: ""; position: fixed; z-index: -1; pointer-events: none;
+  width: clamp(160px, 29vw, 420px); height: min(75vh, 620px);
+  background: url('/leaves.svg') left bottom / contain no-repeat;
+  left: -45px; bottom: -70px; opacity: .6;
+}
+.botanical-page::after { left: auto; right: -90px; bottom: -180px; transform: scaleX(-1) rotate(12deg); opacity: .28; }
+[data-theme="dark"] .botanical-page::before { opacity: .3; }
+[data-theme="dark"] .botanical-page::after { opacity: .16; }
+.theme-changing .botanical-page::before, .theme-changing .botanical-page::after { transition: opacity 1.5s ease; }
+@media (max-width: 600px) {
+  .scene-sun, .scene-moon { top: 102px; right: 32px; width: 48px; height: 48px; }
+  .scene-moon { box-shadow: inset -11px -6px 0 #b9b4a5, 0 0 30px #f4e8c416; }
+  .scene-moon::before { width: 10px; height: 10px; top: 13px; left: 10px; }
+  .scene-moon::after { width: 6px; height: 6px; top: 28px; left: 20px; }
+  .scene-cloud { width: 105px; top: 119px; right: 8px; }
+  .scene-cloud-two { width: 74px; right: 43vw; top: 106px; }
+  .scene-owl-flight { width: 65px; top: 164px; right: 8px; }
+  .drive-page .page-scene { top: 105px; }
+  .drive-shell { padding-top: 105px; }
+  .botanical-page .auth-panel { padding-top: 100px; }
+  .botanical-page::before { left: -50px; opacity: .4; }
+  .botanical-page::after { right: -80px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

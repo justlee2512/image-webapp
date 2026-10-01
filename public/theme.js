@@ -11,10 +11,10 @@
     clearTimeout(animationTimer);
     root.classList.remove('theme-changing');
     if (animate) {
-      // Restart the short owl arrival even when the switch is clicked quickly.
+      // Restart the scene safely when the switch is clicked again mid-transition.
       void root.offsetWidth;
       root.classList.add('theme-changing');
-      animationTimer = setTimeout(() => root.classList.remove('theme-changing'), 900);
+      animationTimer = setTimeout(() => root.classList.remove('theme-changing'), 2600);
     }
     root.dataset.theme = theme;
     document.querySelectorAll('.theme-toggle').forEach((button) => {
