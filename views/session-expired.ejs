@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="vi">
 <head>
+  <script src="/theme.js?<%= assetVersion %>"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Phiên đăng nhập đã hết hạn · Richard Le Drive</title>
@@ -8,6 +9,7 @@
   <link rel="stylesheet" href="/styles.css?<%= assetVersion %>">
 </head>
 <body class="session-expiry-page">
+  <div class="session-theme"><%- include("partials/theme-toggle") %></div>
   <main class="session-expiry-card" aria-labelledby="session-expiry-title">
     <h2 id="session-expiry-title">Phiên đăng nhập đã hết hạn</h2>
     <p>Vui lòng nhấn Continue để quay về trang đăng nhập.</p>

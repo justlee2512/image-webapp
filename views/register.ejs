@@ -1,26 +1,17 @@
 <!doctype html>
 <html lang="vi">
 <head>
+  <script src="/theme.js?<%= assetVersion %>"></script>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tạo tài khoản · Richard Le Drive</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles.css?<%= assetVersion %>"><script src="/auth.js?<%= assetVersion %>" defer></script>
 </head>
 <body class="auth-page">
+  <header class="auth-header"><a class="brand" href="/"><span class="brand-mark">R</span><span>Richard Le <span class="brand-suffix">Drive</span></span></a><%- include("partials/theme-toggle") %></header>
   <main class="auth-shell">
-    <section class="auth-story register-story">
-      <div class="marquee-banner compact" aria-label="Thông báo"><span>✨ Tạo tài khoản để lưu trữ ảnh riêng tư · Giao diện hiện đại · Dễ dùng</span></div>
-      <div class="intro-popups auth-intro" aria-label="Thông tin giới thiệu">
-        <div class="intro-popup"><div class="intro-track"><span>🌿 Bắt đầu hành trình lưu giữ khoảnh khắc với một không gian thư viện đẹp mắt</span></div></div>
-        <div class="intro-popup"><div class="intro-track"><span>🛡️ Bảo vệ ảnh của bạn bằng tài khoản riêng và trải nghiệm mượt mà mỗi lần mở</span></div></div>
-      </div>
-      <a class="brand brand-light" href="/"><span class="brand-mark">R</span><span>Richard Le</span></a>
-      <div><p class="eyebrow">THƯ VIỆN CÁ NHÂN</p><h1>Ảnh của bạn.<br>Không gian của bạn.</h1><p class="story-copy">Bắt đầu xây dựng bộ sưu tập riêng, được bảo vệ bằng tài khoản của chính bạn.</p></div>
-      <p class="story-foot">Chỉ dành cho <%= maxAccounts %> thành viên đầu tiên</p>
-    </section>
     <section class="auth-panel">
       <form class="auth-card" method="post" action="/register">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
-        <p class="eyebrow ink">BẮT ĐẦU NGAY</p><h2>Gửi yêu cầu tạo tài khoản</h2><p class="muted">Tài khoản sẽ sử dụng được sau khi admin chấp thuận.</p>
+        <h2>Tạo tài khoản</h2><p class="muted">Tài khoản sẽ sử dụng được sau khi admin chấp thuận.</p>
         <% if (error) { %><div class="alert error"><%= error %></div><% } %>
         <% if (success) { %><div class="alert success"><%= success %></div><% } %>
         <label>Tên tài khoản<input name="username" value="<%= form.username || '' %>" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" required placeholder="nguyen_an"></label>

@@ -1,26 +1,17 @@
 <!doctype html>
 <html lang="vi">
 <head>
+  <script src="/theme.js?<%= assetVersion %>"></script>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Đăng nhập · Richard Le Drive</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles.css?<%= assetVersion %>"><script src="/login.js?<%= assetVersion %>" defer></script>
 </head>
 <body class="auth-page">
+  <header class="auth-header"><a class="brand" href="/"><span class="brand-mark">R</span><span>Richard Le <span class="brand-suffix">Drive</span></span></a><%- include("partials/theme-toggle") %></header>
   <main class="auth-shell">
-    <section class="auth-story">
-      <div class="marquee-banner compact" aria-label="Thông báo"><span>✨ Chào mừng bạn đến với Richard Le Drive · Bảo mật · Nhanh · Thẩm mỹ</span></div>
-      <div class="intro-popups auth-intro" aria-label="Thông tin giới thiệu">
-        <div class="intro-popup"><div class="intro-track"><span>📸 Kho ảnh riêng tư, hiện đại và luôn dễ tìm lại</span></div></div>
-        <div class="intro-popup"><div class="intro-track"><span>⚡ Tải, chia sẻ và xem lại khoảnh khắc một cách mượt mà</span></div></div>
-      </div>
-      <a class="brand brand-light" href="/"><span class="brand-mark">R</span><span>Richard Le</span></a>
-      <div><p class="eyebrow">KHÔNG GIAN ẢNH CỦA BẠN</p><h1>Giữ lại những khoảnh khắc đáng nhớ.</h1><p class="story-copy">Một nơi riêng tư, thanh lịch để lưu giữ và xem lại mọi bức ảnh bạn yêu thích.</p></div>
-      <p class="story-foot">Lưu trữ an toàn · Xem ở mọi nơi</p>
-    </section>
     <section class="auth-panel">
       <form class="auth-card" id="login-form" method="post" action="/login">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
-        <p class="eyebrow ink">CHÀO MỪNG TRỞ LẠI</p><h2>Đăng nhập</h2><p class="muted">Tiếp tục đến thư viện ảnh của bạn.</p>
+        <h2>Đăng nhập</h2>
         <% if (error) { %><div class="alert error"><%= error %></div><% } %>
         <label>Tên tài khoản hoặc email<input name="identity" value="<%= form.identity || '' %>" autocomplete="username" autofocus required placeholder="ban@example.com"></label>
         <label>Mật khẩu<input type="password" name="password" autocomplete="current-password" required placeholder="••••••••"></label>

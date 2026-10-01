@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="vi">
 <head>
+  <script src="/theme.js?<%= assetVersion %>"></script>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Quản trị tài khoản · Richard Le Drive</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -9,13 +10,12 @@
 </head>
 <body class="auth-page">
   <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
+  <header class="auth-header"><a class="brand" href="/drive"><span class="brand-mark">R</span><span>Richard Le</span></a><%- include("partials/theme-toggle") %></header>
   <main class="auth-shell admin-shell">
     <section class="auth-panel">
       <div class="auth-card admin-card">
-        <div class="mobile-brand"><span class="brand-mark">R</span> Richard Le</div>
         <p class="eyebrow ink">QUẢN TRỊ</p>
         <h2>Quản lý tài khoản</h2>
-        <p class="muted">Admin có thể duyệt đăng ký, tạo tài khoản mới, xóa người dùng và đổi mật khẩu.</p>
         <% if (error) { %><div class="alert error"><%= error %></div><% } %>
         <% if (success) { %><div class="alert success"><%= success %></div><% } %>
 
