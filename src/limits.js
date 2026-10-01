@@ -27,13 +27,28 @@ async function ensureRateLimitSchema(pool) {
 }
 
 class PgRateLimiter {
-  constructor({ pool, scope, windowMs, maxAttempts, ipMaxAttempts = maxAttempts, maxEntries = 10000 }) {
+  constructor({ pool, scope, windowMs, maxAttempts, ipMaxAttempts = maxAttempts, maxEntries = 10000, blockMs }) {
     this.pool = pool;
     this.scope = scope;
     this.windowMs = positiveInteger(windowMs, 900000, 'rate limit window');
+    this.blockMs = blockMs === undefined ? 0 : positiveInteger(blockMs, this.windowMs, 'rate limit block duration');
     this.maxAttempts = positiveInteger(maxAttempts, 10, 'rate limit attempts');
     this.ipMaxAttempts = positiveInteger(ipMaxAttempts, this.maxAttempts, 'rate limit IP attempts');
     this.maxEntries = positiveInteger(maxEntries, 10000, 'rate limit entries');
+  }
+
+  ipKey(req) {
+    return crypto.createHash('sha256').update(`${this.scope}:ip:${req.ip}`).digest('hex');
+  }
+
+  async check(req) {
+    const result = await this.pool.query(
+      `SELECT GREATEST(1, CEIL(EXTRACT(EPOCH FROM (reset_at - clock_timestamp()))))::int AS retry_after
+       FROM image_drive.rate_limits
+       WHERE key = $1 AND attempts > $2 AND reset_at > clock_timestamp()`,
+      [this.ipKey(req), this.ipMaxAttempts]
+    );
+    return { allowed: result.rowCount === 0, retryAfterSeconds: result.rows[0]?.retry_after || 0 };
   }
 
   async consume(req, identity) {
@@ -65,9 +80,12 @@ class PgRateLimiter {
           `INSERT INTO image_drive.rate_limits (key, attempts, reset_at)
            VALUES ($1, 1, clock_timestamp() + $2 * INTERVAL '1 millisecond')
            ON CONFLICT (key) DO UPDATE
-             SET attempts = LEAST(image_drive.rate_limits.attempts + 1, $3 + 1)
+             SET attempts = LEAST(image_drive.rate_limits.attempts + 1, $3 + 1),
+                 reset_at = CASE WHEN $4 > 0 AND image_drive.rate_limits.attempts = $3
+                   THEN clock_timestamp() + $4 * INTERVAL '1 millisecond'
+                   ELSE image_drive.rate_limits.reset_at END
            RETURNING attempts, GREATEST(1, CEIL(EXTRACT(EPOCH FROM (reset_at - clock_timestamp()))))::int AS retry_after`,
-          [keys[i], this.windowMs, buckets[i].limit]
+          [keys[i], this.windowMs, buckets[i].limit, this.blockMs]
         );
         if (result.rows[0].attempts > buckets[i].limit) {
           // Reject an exhausted IP before allocating any new identity buckets.

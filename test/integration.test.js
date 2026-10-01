@@ -93,6 +93,28 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
     assert.equal((await pool.query('SELECT * FROM image_drive.rate_limits')).rowCount, 4);
   });
 
+  await t.test('registration blocks the IP on attempt 11 across replicas, expires and never extends an active block', async () => {
+    await reset();
+    const options = { pool, scope: 'register', windowMs: 60000, maxAttempts: 10, blockMs: 120000 };
+    const a = new PgRateLimiter(options);
+    const b = new PgRateLimiter(options);
+    const req = { ip: '192.0.2.10' };
+    const results = await settleAll(Array.from({ length: 15 }, (_, i) => (i % 2 ? a : b).consume(req)));
+    assert.equal(results.filter((r) => r.allowed).length, 10);
+    const blocked = await b.check(req);
+    assert.equal(blocked.allowed, false);
+    assert.ok(blocked.retryAfterSeconds > 60 && blocked.retryAfterSeconds <= 120);
+    assert.equal((await b.check({ ip: '192.0.2.11' })).allowed, true);
+    const expiry = async () => (await pool.query('SELECT reset_at::text FROM image_drive.rate_limits WHERE key = $1', [a.ipKey(req)])).rows[0].reset_at;
+    const before = await expiry();
+    await a.consume(req);
+    assert.equal(await expiry(), before);
+    await pool.query("UPDATE image_drive.rate_limits SET reset_at = clock_timestamp() - INTERVAL '1 second' WHERE key = $1", [a.ipKey(req)]);
+    assert.equal((await b.check(req)).allowed, true);
+    assert.equal((await a.consume(req)).allowed, true);
+    assert.equal((await b.check(req)).allowed, true);
+  });
+
   await t.test('rate limit storage stays bounded and expired entries free capacity', async () => {
     await reset();
     const limiter = new PgRateLimiter({ pool, scope: 'bounded', windowMs: 60000, maxAttempts: 10, maxEntries: 4 });
@@ -112,7 +134,7 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
       NODE_ENV: 'test', DATABASE_URL: databaseUrl.toString(), SESSION_SECRET: 'integration-test-session-secret-32-characters',
       COOKIE_SECURE: 'false', TRUST_PROXY: 'false', MAX_ACCOUNTS: '3', MAX_PENDING_REQUESTS: '10',
       // Legacy quota settings must no longer restrict uploads.
-      MAX_UPLOAD_FILES: '1', MAX_UPLOAD_TOTAL_MB: '1', REGISTER_RATE_LIMIT_MAX_ATTEMPTS: '5',
+      MAX_UPLOAD_FILES: '1', MAX_UPLOAD_TOTAL_MB: '1', REGISTER_RATE_LIMIT_MAX_ATTEMPTS: '10', REGISTER_IP_BLOCK_MS: '3600000',
       REGISTER_RATE_LIMIT_WINDOW_MS: '3600000', LOGIN_RATE_LIMIT_MAX_ATTEMPTS: '10', LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS: '100'
     });
     const admin = await ensureAdminBootstrap(pool, config);
@@ -162,9 +184,17 @@ test('security integration with PostgreSQL', { skip: !process.env.TEST_DATABASE_
       const result = await publicUser.request('/register', { method: 'POST', form: { username, email: `${username}@example.com`, password: loginPassword, passwordConfirm: loginPassword } });
       assert.equal(result.status, 200, result.body);
     }
+    for (let i = 0; i < 5; i++) {
+      assert.equal((await publicUser.request('/register', { method: 'POST', form: {} })).status, 400);
+    }
     const blocked = await publicUser.request('/register', { method: 'POST', form: { username: 'guestsix', email: 'six@example.com', password: loginPassword, passwordConfirm: loginPassword } });
     assert.equal(blocked.status, 429);
     assert.ok(Number(blocked.headers.get('retry-after')) > 0);
+    for (const path of ['/login', '/drive', '/styles.css', '/session-status']) {
+      assert.equal((await browser().request(path)).status, 429, path);
+    }
+    await pool.query("UPDATE image_drive.rate_limits SET reset_at = clock_timestamp() - INTERVAL '1 second'");
+    assert.equal((await publicUser.request('/login')).status, 200);
     await pool.query("UPDATE image_drive.account_requests SET created_at = CURRENT_TIMESTAMP - INTERVAL '2 days' WHERE username = 'guestfour'");
     const expired = (await pool.query("SELECT id FROM image_drive.account_requests WHERE username = 'guestfour'")).rows[0];
     const owner = browser();

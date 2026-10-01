@@ -2168,8 +2168,8 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 .scene-dusk { position: absolute; inset: 0; background: linear-gradient(170deg, #c6773020, #bc553518 45%, transparent 75%); opacity: 0; }
 .scene-owl-flight { position: absolute; right: 2vw; top: 210px; width: 100px; opacity: 0; transform: translate(180px, 80px); }
 .scene-flying-owl { display: block; width: 100%; }
-.owl-wing-left { transform-origin: 64px 65px; transform: rotate(-55deg); }
-.owl-wing-right { transform-origin: 96px 65px; transform: rotate(55deg); }
+.owl-wing-left { transform-origin: 64px 65px; transform: rotate(-105deg); }
+.owl-wing-right { transform-origin: 96px 65px; transform: rotate(105deg); }
 [data-theme="dark"] .scene-sun { opacity: 0; transform: translate(-100px, 50vh); }
 [data-theme="dark"] .scene-cloud { opacity: 0; transform: translateX(-45px); }
 [data-theme="dark"] .scene-moon { opacity: 1; transform: translate(0, 0); }
@@ -2193,20 +2193,10 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
   85% { transform: translate(-24px, 8px) rotate(-4deg); }
   100% { opacity: 1; transform: translate(0, 0) rotate(0); }
 }
-@keyframes wing-left { 0%, 100% { transform: rotate(-55deg); } 50% { transform: rotate(22deg); } }
-@keyframes wing-right { 0%, 100% { transform: rotate(55deg); } 50% { transform: rotate(-22deg); } }
+@keyframes wing-left { 0%, 100% { transform: rotate(-105deg); } 50% { transform: rotate(22deg); } }
+@keyframes wing-right { 0%, 100% { transform: rotate(105deg); } 50% { transform: rotate(-22deg); } }
 .drive-shell { padding-top: 115px; }
 .admin-shell .auth-panel { padding-top: 100px; }
-.botanical-page::before, .botanical-page::after {
-  content: ""; position: fixed; z-index: -1; pointer-events: none;
-  width: clamp(160px, 29vw, 420px); height: min(75vh, 620px);
-  background: url('/leaves.svg') left bottom / contain no-repeat;
-  left: -45px; bottom: -70px; opacity: .6;
-}
-.botanical-page::after { left: auto; right: -90px; bottom: -180px; transform: scaleX(-1) rotate(12deg); opacity: .28; }
-[data-theme="dark"] .botanical-page::before { opacity: .3; }
-[data-theme="dark"] .botanical-page::after { opacity: .16; }
-.theme-changing .botanical-page::before, .theme-changing .botanical-page::after { transition: opacity 1.5s ease; }
 @media (max-width: 600px) {
   .scene-sun, .scene-moon { top: 102px; right: 32px; width: 48px; height: 48px; }
   .scene-moon { box-shadow: inset -11px -6px 0 #b9b4a5, 0 0 30px #f4e8c416; }
@@ -2218,8 +2208,41 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
   .drive-page .page-scene { top: 105px; }
   .drive-shell { padding-top: 105px; }
   .botanical-page .auth-panel { padding-top: 100px; }
-  .botanical-page::before { left: -50px; opacity: .4; }
-  .botanical-page::after { right: -80px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Woodland backdrop: one shared coordinate system keeps birds on the branches. */
+.scene-tree { position: absolute; right: -35px; bottom: -12px; width: clamp(220px, 31vw, 460px); height: auto; overflow: visible; }
+.tree-foliage { opacity: .8; }
+[data-theme="dark"] .tree-foliage { opacity: .32; }
+[data-theme="dark"] .tree-wood { opacity: .65; }
+.scene-tree .scene-owl-flight { position: static; transform: translate(180px, 80px); opacity: 0; }
+[data-theme="dark"] .scene-tree .scene-owl-flight { transform: translate(0, 0); opacity: 1; }
+.scene-doves { opacity: 1; }
+[data-theme="dark"] .scene-doves { opacity: 0; transform: translate(50px, -60px); }
+.theme-changing .scene-doves { transition: opacity .7s ease, transform 1s ease; }
+.theme-changing .tree-foliage, .theme-changing .tree-wood { transition: opacity 1.5s ease; }
+.scene-bush { position: absolute; bottom: -90px; left: -95px; width: clamp(260px, 29vw, 450px); height: clamp(300px, 46vh, 480px); transform-origin: 50% 100%; animation: bush-breeze 6s ease-in-out infinite; opacity: .7; }
+.scene-bush img { position: absolute; bottom: 0; left: 0; width: 75%; height: 100%; object-fit: contain; transform-origin: 50% 100%; transform: rotate(-28deg); }
+.scene-bush img:nth-child(2) { left: 22%; transform: rotate(14deg); }
+.scene-bush img:nth-child(3) { left: 37%; height: 76%; transform: rotate(43deg); }
+[data-theme="dark"] .scene-bush { animation-play-state: paused; opacity: .35; }
+.theme-changing .scene-bush { transition: opacity 1.5s ease; }
+.perched-owl-head { transform-origin: 80px 77px; }
+.perched-owl-eyes { transform-origin: 80px 60px; }
+[data-theme="dark"] .perched-owl-head { animation: owl-look 9s ease-in-out 2.5s infinite; }
+[data-theme="dark"] .perched-owl-eyes { animation: owl-perch-blink 6s ease-in-out 2.5s infinite; }
+[data-theme="dark"] .owl-gaze { animation: owl-gaze 9s ease-in-out 2.5s infinite; }
+@keyframes bush-breeze { 0%, 100% { transform: rotate(-1.5deg); } 45% { transform: rotate(2deg); } 70% { transform: rotate(.3deg); } }
+@keyframes owl-look { 0%, 20%, 90%, 100% { transform: rotate(0); } 30%, 45% { transform: rotate(-9deg); } 60%, 75% { transform: rotate(9deg); } }
+@keyframes owl-gaze { 0%, 20%, 90%, 100% { transform: translateX(0); } 30%, 45% { transform: translateX(-3px); } 60%, 75% { transform: translateX(3px); } }
+@keyframes owl-perch-blink { 0%, 42%, 48%, 73%, 79%, 100% { transform: scaleY(1); } 45%, 76% { transform: scaleY(.06); } }
+@media (max-width: 800px) {
+  .scene-tree { width: 250px; right: -72px; bottom: -35px; }
+  .scene-bush { width: 240px; height: 310px; left: -90px; bottom: -90px; }
+  .tree-foliage { opacity: .55; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

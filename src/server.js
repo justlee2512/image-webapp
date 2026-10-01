@@ -16,6 +16,7 @@ const { getAssetVersion, applyCacheHeaders } = require('./cache');
 const { setFlash, clearFlash } = require('./flash');
 const { ensureCsrfToken, csrfProtection, sendSessionExpired } = require('./security');
 const { positiveInteger, ensureRateLimitSchema, PgRateLimiter } = require('./limits');
+const { registrationGuard } = require('./registration-guard');
 
 sharp.cache(false);
 sharp.concurrency(1);
@@ -76,8 +77,17 @@ app.use(helmet({
   },
   crossOriginResourcePolicy: { policy: 'same-origin' }
 }));
-app.use(express.urlencoded({ extended: false }));
 app.use(applyCacheHeaders);
+const registrationLimiter = new PgRateLimiter({
+  pool, scope: 'register',
+  windowMs: process.env.REGISTER_RATE_LIMIT_WINDOW_MS ?? 60 * 60 * 1000,
+  maxAttempts: process.env.REGISTER_RATE_LIMIT_MAX_ATTEMPTS ?? 10,
+  blockMs: process.env.REGISTER_IP_BLOCK_MS ?? 60 * 60 * 1000
+});
+// Check before parsing, sessions, CSRF and static files: a blocked IP cannot
+// bypass the restriction by changing route, cookies or registration identity.
+app.use(registrationGuard(registrationLimiter));
+app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { etag: true, maxAge: 0 }));
 const sessionStore = new PgSessionStore({ pool, ttlMs: sessionTtlMs });
 app.use(session({
@@ -119,11 +129,6 @@ const loginLimiter = new PgRateLimiter({
   windowMs: process.env.LOGIN_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000,
   maxAttempts: process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS ?? 10,
   ipMaxAttempts: process.env.LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS ?? 100
-});
-const registrationLimiter = new PgRateLimiter({
-  pool, scope: 'register',
-  windowMs: process.env.REGISTER_RATE_LIMIT_WINDOW_MS ?? 60 * 60 * 1000,
-  maxAttempts: process.env.REGISTER_RATE_LIMIT_MAX_ATTEMPTS ?? 5
 });
 
 function limitAuthRequests(limiter, view) {
@@ -227,7 +232,7 @@ app.get('/health', async (_req, res) => {
 });
 
 app.get('/register', (_req, res) => renderAuth(res, 'register'));
-app.post('/register', limitAuthRequests(registrationLimiter, 'register'), async (req, res) => {
+app.post('/register', async (req, res) => {
   const username = String(req.body.username || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');

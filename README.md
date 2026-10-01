@@ -114,7 +114,8 @@ Giới hạn đăng nhập/đăng ký được lưu chung trong PostgreSQL, tín
 | `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` | 10 | Số lần đăng nhập theo identity, chung mọi IP |
 | `LOGIN_RATE_LIMIT_IP_MAX_ATTEMPTS` | 100 | Số lần đăng nhập theo IP, chung mọi identity |
 | `REGISTER_RATE_LIMIT_WINDOW_MS` | 3600000 | Cửa sổ đăng ký 1 giờ |
-| `REGISTER_RATE_LIMIT_MAX_ATTEMPTS` | 5 | Số yêu cầu đăng ký theo IP |
+| `REGISTER_RATE_LIMIT_MAX_ATTEMPTS` | 10 | Số lần POST đăng ký theo IP, kể cả yêu cầu không hợp lệ |
+| `REGISTER_IP_BLOCK_MS` | 3600000 | Khóa IP toàn ứng dụng 1 giờ kể từ lần đăng ký vượt giới hạn |
 | `MAX_PENDING_REQUESTS` | 100 | Hạn mức hàng chờ riêng, không chiếm suất `MAX_ACCOUNTS` |
 | `ACCOUNT_REQUEST_TTL_MS` | 86400000 | Yêu cầu đăng ký hết hạn sau 24 giờ, không hiển thị/duyệt được; dọn khi đăng ký tiếp |
 
@@ -123,3 +124,5 @@ Các replica phải dùng cùng cấu hình giới hạn. Chỉ bật `TRUST_PRO
 ## Kiểm thử
 
 `npm test` chạy unit test. Để chạy cả kiểm thử HTTP và transaction trên PostgreSQL, đặt `TEST_DATABASE_URL` trỏ đến một PostgreSQL dành cho test, với tài khoản có quyền tạo database. Bộ test tự tạo database tên ngẫu nhiên và xóa nó khi hoàn tất; không sử dụng `DATABASE_URL` của app. CI chạy đầy đủ với PostgreSQL 16, dùng `npm ci` và kiểm tra dependency bằng `npm audit --omit=dev --audit-level=high`.
+
+Đăng ký: mặc định cho phép 10 yêu cầu trong 1 giờ; yêu cầu thứ 11 trả HTTP 429 và khóa IP trên mọi đường dẫn (kể cả đăng nhập, ảnh và file tĩnh). `Retry-After` cho biết số giây còn lại. Khóa tự hết hạn, không kéo dài thêm khi IP tiếp tục gửi request; dữ liệu dùng chung PostgreSQL giữa các replica. Các thiết bị dùng chung IP công cộng cũng chịu cùng giới hạn. Cấu hình triển khai cũ cần đổi `REGISTER_RATE_LIMIT_MAX_ATTEMPTS=5` thành `10` để dùng ngưỡng mới.
