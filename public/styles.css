@@ -2341,3 +2341,34 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .theme-changing .scene-tree .owl-wing { opacity: 0; }
 }
+
+/* Slow ambient weather; motion is isolated from the stationary perches. */
+.scene-stars { width: min(720px, 64vw); right: 19vw; top: 70px; }
+.scene-star { opacity: .24; transform-box: fill-box; transform-origin: center; }
+[data-theme="dark"] .scene-stars { opacity: 1; }
+[data-theme="light"] .scene-cloud { animation: cloud-drift 28s linear infinite; }
+[data-theme="light"] .scene-cloud-two { animation-duration: 37s; animation-delay: -17s; }
+[data-theme="dark"] .scene-cloud { animation: none; }
+.tree-foliage { transform-origin: 270px 285px; animation: canopy-breeze 10s ease-in-out infinite; }
+[data-theme="dark"] .tree-foliage { animation-duration: 15s; }
+[data-theme="dark"] .scene-bush { animation: bush-night-breeze 11s ease-in-out infinite; animation-play-state: running; }
+[data-theme="dark"] .scene-bush-back { animation-delay: -3s; }
+[data-theme="dark"] .scene-bush-front { animation-delay: -6s; }
+/* Flight paths and wingbeats are coordinated by theme.js, including cancellation. */
+.theme-changing .scene-tree .scene-owl-flight { animation: none; transition: none; }
+.theme-changing .scene-tree .owl-wing { animation: none; opacity: 0; transition: none; }
+@keyframes cloud-drift {
+  0% { opacity: 0; transform: translateX(-150px); }
+  12% { opacity: .65; }
+  72% { opacity: .65; }
+  94%, 100% { opacity: 0; transform: translateX(240px); }
+}
+@keyframes canopy-breeze { 0%, 100% { transform: rotate(-.5deg); } 50% { transform: rotate(.7deg); } }
+@keyframes bush-night-breeze { 0%, 100% { transform: rotate(-.45deg); } 50% { transform: rotate(.65deg); } }
+@media (max-width: 800px) {
+  .scene-stars { width: 88vw; right: 6vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  [data-theme="light"] .scene-cloud { opacity: .55; }
+}
