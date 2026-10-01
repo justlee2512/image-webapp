@@ -2181,9 +2181,9 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 .theme-changing[data-theme="dark"] .scene-moon { transition-delay: .65s; }
 .theme-changing .scene-stars { transition: opacity 1.5s ease; }
 .theme-changing .scene-owl-flight { transition: opacity .5s ease, transform 1s ease; }
-.theme-changing[data-theme="dark"] .scene-owl-flight { animation: owl-arrival 2.5s both; }
-.theme-changing[data-theme="dark"] .owl-wing-left { animation: wing-left .4s ease-in-out 5; }
-.theme-changing[data-theme="dark"] .owl-wing-right { animation: wing-right .4s ease-in-out 5; }
+.theme-changing[data-theme="dark"] .scene-owl-flight { animation: owl-arrival 3.5s cubic-bezier(.33,0,.25,1) both; }
+.theme-changing[data-theme="dark"] .owl-wing-left { animation: wing-left .45s ease-in-out 7; }
+.theme-changing[data-theme="dark"] .owl-wing-right { animation: wing-right .45s ease-in-out 7; }
 .theme-changing .scene-dusk { animation: dusk-glow 1.8s ease both; }
 @keyframes dusk-glow { 0%, 100% { opacity: 0; } 35% { opacity: 1; } }
 @keyframes owl-arrival {
@@ -2221,8 +2221,8 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 .scene-tree .scene-owl-flight { position: static; transform: translate(180px, 80px); opacity: 0; }
 [data-theme="dark"] .scene-tree .scene-owl-flight { transform: translate(0, 0); opacity: 1; }
 .scene-doves { opacity: 1; }
-[data-theme="dark"] .scene-doves { opacity: 0; transform: translate(50px, -60px); }
-.theme-changing .scene-doves { transition: opacity .7s ease, transform 1s ease; }
+
+
 .theme-changing .tree-foliage, .theme-changing .tree-wood { transition: opacity 1.5s ease; }
 .scene-bush { position: absolute; bottom: -90px; left: -95px; width: clamp(260px, 29vw, 450px); height: clamp(300px, 46vh, 480px); transform-origin: 50% 100%; animation: bush-breeze 6s ease-in-out infinite; opacity: .7; }
 .scene-bush img { position: absolute; bottom: 0; left: 0; width: 75%; height: 100%; object-fit: contain; transform-origin: 50% 100%; transform: rotate(-28deg); }
@@ -2232,9 +2232,9 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 .theme-changing .scene-bush { transition: opacity 1.5s ease; }
 .perched-owl-head { transform-origin: 80px 77px; }
 .perched-owl-eyes { transform-origin: 80px 60px; }
-[data-theme="dark"] .perched-owl-head { animation: owl-look 9s ease-in-out 2.5s infinite; }
-[data-theme="dark"] .perched-owl-eyes { animation: owl-perch-blink 6s ease-in-out 2.5s infinite; }
-[data-theme="dark"] .owl-gaze { animation: owl-gaze 9s ease-in-out 2.5s infinite; }
+[data-theme="dark"] .perched-owl-head { animation: owl-look 9s ease-in-out 3.5s infinite; }
+[data-theme="dark"] .perched-owl-eyes { animation: owl-perch-blink 6s ease-in-out 3.5s infinite; }
+[data-theme="dark"] .owl-gaze { animation: owl-gaze 9s ease-in-out 3.5s infinite; }
 @keyframes bush-breeze { 0%, 100% { transform: rotate(-1.5deg); } 45% { transform: rotate(2deg); } 70% { transform: rotate(.3deg); } }
 @keyframes owl-look { 0%, 20%, 90%, 100% { transform: rotate(0); } 30%, 45% { transform: rotate(-9deg); } 60%, 75% { transform: rotate(9deg); } }
 @keyframes owl-gaze { 0%, 20%, 90%, 100% { transform: translateX(0); } 30%, 45% { transform: translateX(-3px); } 60%, 75% { transform: translateX(3px); } }
@@ -2246,4 +2246,44 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Layered foliage and individual take-offs, kept separate from perch positions. */
+.scene-bush-back { left: -125px; bottom: -50px; width: clamp(280px, 30vw, 460px); height: min(64vh, 620px); opacity: .38; animation-delay: -2s; }
+.scene-bush-front { left: 70px; bottom: -125px; width: clamp(200px, 25vw, 360px); height: min(36vh, 340px); opacity: .8; animation-delay: -4s; }
+[data-theme="dark"] .scene-bush-back { opacity: .22; }
+[data-theme="dark"] .scene-bush-front { opacity: .4; }
+.perched-owl-head { transform-origin: 80px 82px; }
+.perched-owl-eyes { transform-origin: 80px 56px; }
+.scene-tree .owl-wing-left { transform-origin: 53px 96px; }
+.scene-tree .owl-wing-right { transform-origin: 107px 96px; }
+.scene-tree .owl-wing { opacity: 0; transition: opacity .3s ease; }
+.theme-changing[data-theme="dark"] .scene-tree .owl-wing { opacity: 1; }
+.dove-flight { opacity: 1; transform-origin: 50px 36px; }
+.dove-wing { transform-origin: 55px 34px; }
+[data-theme="dark"] .dove-flight { opacity: 0; transform: translate(700px, -650px) scale(.4); }
+.theme-changing[data-theme="dark"] .dove-flight { animation: dove-departure 2.8s linear both; }
+.theme-changing[data-theme="dark"] .dove-two { animation-delay: .18s; }
+.theme-changing[data-theme="dark"] .dove-three { animation-delay: .38s; }
+.theme-changing[data-theme="dark"] .dove-wing { animation: dove-wingbeat .36s ease-in-out 9; }
+.theme-changing[data-theme="dark"] .dove-two .dove-wing { animation-delay: .18s; }
+.theme-changing[data-theme="dark"] .dove-three .dove-wing { animation-delay: .38s; }
+.theme-changing[data-theme="dark"] .dove-feet { opacity: 0; transition: opacity .3s .25s; }
+.theme-changing[data-theme="light"] .dove-flight { transition: opacity 1s .6s; }
+@keyframes dove-departure {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); }
+  9% { opacity: 1; transform: translate(6px, 5px) rotate(-5deg) scale(.98); }
+  27% { opacity: 1; transform: translate(70px, -55px) rotate(-16deg) scale(.95); }
+  52% { opacity: 1; transform: translate(245px, -150px) rotate(-23deg) scale(.8); }
+  78% { opacity: .85; transform: translate(460px, -355px) rotate(-30deg) scale(.6); }
+  100% { opacity: 0; transform: translate(700px, -650px) rotate(-35deg) scale(.4); }
+}
+@keyframes dove-wingbeat { 0%, 100% { transform: rotate(-15deg) scaleY(1); } 50% { transform: rotate(125deg) scaleY(.85); } }
+@media (max-width: 800px) {
+  .scene-bush-back { width: 250px; height: 410px; left: -115px; bottom: -75px; }
+  .scene-bush-front { width: 200px; height: 240px; left: 0; bottom: -110px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .theme-changing[data-theme="dark"] .scene-tree .owl-wing { opacity: 0; transition: opacity .3s ease; }
 }

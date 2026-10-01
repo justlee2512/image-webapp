@@ -14,7 +14,7 @@
       // Restart the scene safely when the switch is clicked again mid-transition.
       void root.offsetWidth;
       root.classList.add('theme-changing');
-      animationTimer = setTimeout(() => root.classList.remove('theme-changing'), 2600);
+      animationTimer = setTimeout(() => root.classList.remove('theme-changing'), 3800);
     }
     root.dataset.theme = theme;
     document.querySelectorAll('.theme-toggle').forEach((button) => {
