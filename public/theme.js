@@ -65,7 +65,7 @@
     function sparkle() {
       starAnimations = starAnimations.filter((item) => item.playState !== 'finished');
       const available = stars.filter((star) => !star.getAnimations().length);
-      const count = Math.min(6, available.length);
+      const count = Math.min(10, available.length);
       for (let i = 0; i < count; i++) {
         const index = Math.floor(Math.random() * available.length);
         const [star] = available.splice(index, 1);
@@ -77,7 +77,7 @@
         ], { duration: 2600 + Math.random() * 1000, easing: 'ease-in-out' });
         starAnimations.push(animation);
       }
-      starTimer = setTimeout(sparkle, 1300 + Math.random() * 400);
+      starTimer = setTimeout(sparkle, 1000 + Math.random() * 300);
     }
     sparkle();
   }
