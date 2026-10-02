@@ -2164,7 +2164,7 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 .scene-moon { opacity: 0; transform: translate(40px, 180px); background: #eee8d5; box-shadow: inset -17px -9px 0 #b9b4a5, 0 0 48px #f4e8c416; }
 .scene-moon::before, .scene-moon::after { content: ""; position: absolute; border-radius: 50%; background: #c9c4b440; width: 17px; height: 17px; top: 20px; left: 15px; }
 .scene-moon::after { width: 10px; height: 10px; top: 46px; left: 31px; }
-.scene-stars { position: absolute; right: 3vw; top: 80px; width: min(460px, 65vw); color: #d3cfbe; opacity: 0; }
+.scene-stars { position: absolute; left: 4vw; right: auto; top: 70px; width: min(720px, 54vw); color: #d3cfbe; opacity: 0; }
 .scene-dusk { position: absolute; inset: 0; background: linear-gradient(170deg, #c6773020, #bc553518 45%, transparent 75%); opacity: 0; }
 .scene-owl-flight { position: absolute; right: 2vw; top: 210px; width: 100px; opacity: 0; transform: translate(180px, 80px); }
 .scene-flying-owl { display: block; width: 100%; }
@@ -2290,9 +2290,9 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 
 /* Dawn reverses the wildlife scene; the sky stays between the form and canopy. */
 .scene-sun, .scene-moon { right: 35vw; top: 108px; }
+.scene-moon { left: calc(42vw - 38px); right: auto; }
 .scene-cloud-one { right: 29vw; top: 124px; }
 .scene-cloud-two { right: 49vw; top: 98px; }
-.scene-stars { right: 24vw; top: 82px; width: min(430px, 39vw); }
 .theme-changing[data-theme="light"] .scene-owl-flight { animation: owl-departure 2.4s linear both; }
 .theme-changing[data-theme="light"] .owl-wing-left { animation: wing-left .4s ease-in-out 6; }
 .theme-changing[data-theme="light"] .owl-wing-right { animation: wing-right .4s ease-in-out 6; }
@@ -2332,10 +2332,12 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 @keyframes dove-blink { 0%, 42%, 48%, 100% { transform: scaleY(1); } 45% { transform: scaleY(.08); } }
 @media (max-width: 800px) {
   .scene-tree { width: 270px; right: -90px; bottom: -35px; }
-  .scene-sun, .scene-moon { right: 37vw; }
+  .scene-sun { right: 37vw; }
   .scene-cloud-one { right: 25vw; }
   .scene-cloud-two { right: 62vw; }
-  .scene-stars { right: 22vw; width: 65vw; }
+}
+@media (max-width: 600px) {
+  .scene-moon { left: calc(42vw - 24px); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -2343,13 +2345,12 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 }
 
 /* Slow ambient weather; motion is isolated from the stationary perches. */
-.scene-stars { width: min(720px, 64vw); right: 19vw; top: 70px; }
 .scene-star { opacity: .24; transform-box: fill-box; transform-origin: center; }
 [data-theme="dark"] .scene-stars { opacity: 1; }
 [data-theme="light"] .scene-cloud { animation: cloud-drift 28s linear infinite; }
 [data-theme="light"] .scene-cloud-two { animation-duration: 37s; animation-delay: -17s; }
 [data-theme="dark"] .scene-cloud { animation: none; }
-.tree-foliage { transform-origin: 270px 285px; animation: canopy-breeze 10s ease-in-out infinite; }
+.tree-foliage { transform-origin: 222px 273px; animation: canopy-breeze 10s ease-in-out infinite; }
 [data-theme="dark"] .tree-foliage { animation-duration: 15s; }
 [data-theme="dark"] .scene-bush { animation: bush-night-breeze 11s ease-in-out infinite; animation-play-state: running; }
 [data-theme="dark"] .scene-bush-back { animation-delay: -3s; }
@@ -2366,7 +2367,7 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 @keyframes canopy-breeze { 0%, 100% { transform: rotate(-.5deg); } 50% { transform: rotate(.7deg); } }
 @keyframes bush-night-breeze { 0%, 100% { transform: rotate(-.45deg); } 50% { transform: rotate(.65deg); } }
 @media (max-width: 800px) {
-  .scene-stars { width: 88vw; right: 6vw; }
+  .scene-stars { left: 5vw; width: min(54vw, calc(95vw - 200px)); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
