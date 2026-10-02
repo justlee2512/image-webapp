@@ -2290,7 +2290,7 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 
 /* Dawn reverses the wildlife scene; the sky stays between the form and canopy. */
 .scene-sun, .scene-moon { right: 35vw; top: 108px; }
-.scene-moon { left: calc(42vw - 38px); right: auto; }
+.scene-moon { left: calc(38vw - 38px); right: auto; }
 .scene-cloud-one { right: 29vw; top: 124px; }
 .scene-cloud-two { right: 49vw; top: 98px; }
 .theme-changing[data-theme="light"] .scene-owl-flight { animation: owl-departure 2.4s linear both; }
@@ -2337,7 +2337,7 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
   .scene-cloud-two { right: 62vw; }
 }
 @media (max-width: 600px) {
-  .scene-moon { left: calc(42vw - 24px); }
+  .scene-moon { left: calc(38vw - 24px); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -2345,7 +2345,7 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 }
 
 /* Slow ambient weather; motion is isolated from the stationary perches. */
-.scene-star { opacity: .24; transform-box: fill-box; transform-origin: center; }
+.scene-star { opacity: .38; transform-box: fill-box; transform-origin: center; }
 [data-theme="dark"] .scene-stars { opacity: 1; }
 [data-theme="light"] .scene-cloud { animation: cloud-drift 28s linear infinite; }
 [data-theme="light"] .scene-cloud-two { animation-duration: 37s; animation-delay: -17s; }

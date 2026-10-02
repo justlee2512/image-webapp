@@ -4,7 +4,6 @@
   const system = window.matchMedia('(prefers-color-scheme: dark)');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let starTimer;
-  let lastStar = -1;
   let flightAnimations = [];
   let starAnimations = [];
   let preference;
@@ -64,19 +63,21 @@
     const stars = [...document.querySelectorAll('.scene-star')];
     if (!stars.length || root.dataset.theme !== 'dark' || reducedMotion.matches || document.hidden) return;
     function sparkle() {
-      let index = Math.floor(Math.random() * stars.length);
-      if (index === lastStar) index = (index + 1) % stars.length;
-      lastStar = index;
-      const star = stars[index];
-      const animation = star.animate([
-        { opacity: .24, transform: 'scale(1)', filter: 'drop-shadow(0 0 0px #fff3c9)' },
-        { opacity: 1, transform: 'scale(1.65)', filter: 'drop-shadow(0 0 5px #fff3c9)', offset: .18 },
-        { opacity: .55, transform: 'scale(1.15)', filter: 'drop-shadow(0 0 2px #fff3c9)', offset: .55 },
-        { opacity: .24, transform: 'scale(1)', filter: 'drop-shadow(0 0 0px #fff3c9)' }
-      ], { duration: 2000 + Math.random() * 1200, easing: 'ease-in-out' });
       starAnimations = starAnimations.filter((item) => item.playState !== 'finished');
-      starAnimations.push(animation);
-      starTimer = setTimeout(sparkle, 1200 + Math.random() * 1300);
+      const available = stars.filter((star) => !star.getAnimations().length);
+      const count = Math.min(6, available.length);
+      for (let i = 0; i < count; i++) {
+        const index = Math.floor(Math.random() * available.length);
+        const [star] = available.splice(index, 1);
+        const animation = star.animate([
+          { opacity: .38, transform: 'scale(1)', filter: 'drop-shadow(0 0 0px #fff3c9)' },
+          { opacity: 1, transform: 'scale(1.65)', filter: 'drop-shadow(0 0 5px #fff3c9)', offset: .2 },
+          { opacity: .75, transform: 'scale(1.25)', filter: 'drop-shadow(0 0 3px #fff3c9)', offset: .6 },
+          { opacity: .38, transform: 'scale(1)', filter: 'drop-shadow(0 0 0px #fff3c9)' }
+        ], { duration: 2600 + Math.random() * 1000, easing: 'ease-in-out' });
+        starAnimations.push(animation);
+      }
+      starTimer = setTimeout(sparkle, 1300 + Math.random() * 400);
     }
     sparkle();
   }
