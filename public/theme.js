@@ -19,7 +19,7 @@
   function animateOwl(theme) {
     stopFlight();
     const owl = document.querySelector('.scene-owl-flight');
-    if (!owl || reducedMotion.matches || document.hidden) return;
+    if (!owl || reducedMotion.matches || document.hidden || document.body.classList.contains('woodland-drive')) return;
     const arriving = theme === 'dark';
     const duration = arriving ? 3400 : 2500;
     const delay = arriving ? 450 : 0;

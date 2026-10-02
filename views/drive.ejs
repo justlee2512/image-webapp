@@ -4,11 +4,13 @@
   <script src="/theme.js?<%= assetVersion %>"></script>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title><%= currentFolder ? currentFolder.name : 'Thư viện' %> · Richard Le Drive</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles.css?<%= assetVersion %>">
+  <link rel="stylesheet" href="/woodland.css?<%= assetVersion %>">
+  <link rel="stylesheet" href="/drive.css?<%= assetVersion %>">
   <script src="/session-expiry.js?<%= assetVersion %>" defer></script>
   <script src="/app.js?<%= assetVersion %>" defer></script>
 </head>
-<body class="drive-page">
-  <%- include("partials/scene") %>
+<body class="drive-page woodland-drive">
+  <%- include("partials/woodland-scene", { driveScene: true }) %>
   <header class="topbar">
     <a class="brand" href="/drive"><span class="brand-mark">R</span><span>Richard Le</span></a>
     <div class="topbar-actions">
@@ -21,16 +23,15 @@
   </header>
   <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <main class="drive-shell">
-    <nav class="breadcrumbs"><a href="/drive">Thư viện</a><% if (currentFolder) { %><span>›</span><strong><%= currentFolder.name %></strong><% } %></nav>
-
-    <section class="hero-row"><div><% if (currentFolder && !isOwner) { %><p class="eyebrow ink">Chia sẻ bởi <%= currentFolder.owner_name %></p><% } %><h1><%= currentFolder ? currentFolder.name : 'Thư viện ảnh' %></h1><p class="muted"><%= images.length %> ảnh<% if (!currentFolder) { %> · <%= folders.length %> thư mục<% } %></p></div>
-      <% if (isOwner) { %><form class="upload-form action-card" method="post" action="/images" enctype="multipart/form-data">
+    <section class="hero-row"><div class="library-heading"><nav class="breadcrumbs"><a href="/drive">Thư viện</a><% if (currentFolder) { %><span>›</span><strong><%= currentFolder.name %></strong><% } %></nav><% if (currentFolder && !isOwner) { %><p class="eyebrow ink">Chia sẻ bởi <%= currentFolder.owner_name %></p><% } %><h1><%= currentFolder ? currentFolder.name : 'Thư viện ảnh' %></h1><p class="muted"><%= images.length %> ảnh<% if (!currentFolder) { %> · <%= folders.length %> thư mục<% } %></p></div>
+      <div class="library-actions"><% if (isOwner) { %><form class="upload-form action-card" method="post" action="/images" enctype="multipart/form-data">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <input type="hidden" name="folderId" value="<%= currentFolder ? currentFolder.id : '' %>">
         <input id="image-input" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp" data-max-size-mb="<%= maxFileSizeMb %>" multiple required hidden>
-        <span class="action-icon">↥</span><div class="action-copy"><strong>Thêm ảnh mới</strong><small>Tối đa <%= maxFileSizeMb %> MB/ảnh</small></div><label for="image-input" class="button primary upload-button"><span>＋</span> Chọn ảnh</label>
+        <span class="action-icon"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m-4 4 4-4 4 4M5 17v3h14v-3"/></svg></span><div class="action-copy"><strong>Thêm ảnh mới</strong><small>Tối đa <%= maxFileSizeMb %> MB/ảnh</small></div><button type="button" class="button primary upload-button" data-upload-trigger><span aria-hidden="true">＋</span> Chọn ảnh</button>
         <div class="upload-progress" id="upload-progress" hidden><div><span id="upload-status">Đang chuẩn bị…</span><strong id="upload-percent">0%</strong></div><progress id="upload-bar" value="0" max="100"></progress></div>
       </form><% } %>
+      <% if (!currentFolder) { %><form class="create-folder-form action-card" method="post" action="/folders" data-ajax-form="true"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><span class="action-icon folder-add-icon"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5h6l2 3h10v12H3Z"/></svg></span><div class="folder-input-wrap"><label for="folder-name">Tạo thư mục mới</label><input id="folder-name" name="name" maxlength="100" required placeholder="Ví dụ: Du lịch Đà Lạt"></div><button class="button outline" type="submit">Tạo thư mục</button></form><% } %></div>
     </section>
 
     <% if (error) { %><div class="alert error"><%= error %></div><% } %>
@@ -38,11 +39,9 @@
 
     <% if (!currentFolder) { %>
       <section class="folder-section">
-        <div class="section-title"><div><h2>Thư mục</h2></div>
-          <form class="create-folder-form action-card" method="post" action="/folders" data-ajax-form="true"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><span class="action-icon folder-add-icon">＋</span><div class="folder-input-wrap"><label for="folder-name">Tạo thư mục mới</label><input id="folder-name" name="name" maxlength="100" required placeholder="Ví dụ: Du lịch Đà Lạt"></div><button class="button outline" type="submit">Tạo thư mục</button></form>
-        </div>
+        <div class="section-title"><div><h2>Thư mục</h2></div></div>
         <% if (folders.length) { %><div class="folder-grid"><% folders.forEach((folder) => { %>
-          <a class="folder-card <%= folder.is_owner ? 'folder-drop-target' : '' %>" data-folder-id="<%= folder.is_owner ? folder.id : '' %>" href="/drive?folder=<%= folder.id %>"><span class="folder-icon">▰</span><span><strong><%= folder.name %></strong><small><%= folder.image_count %> ảnh · <%= folder.is_owner ? 'Kéo ảnh vào đây' : `Chia sẻ bởi ${folder.owner_name}` %></small></span><span>→</span></a>
+          <a class="folder-card <%= folder.is_owner ? 'folder-drop-target' : '' %>" data-folder-id="<%= folder.is_owner ? folder.id : '' %>" href="/drive?folder=<%= folder.id %>"><span class="folder-icon" aria-hidden="true"><svg viewBox="0 0 44 38"><path d="M3 5a4 4 0 0 1 4-4h10l5 6h15a4 4 0 0 1 4 4v21a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" fill="#f8c35f"/><path d="M3 13h38v19a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" fill="#f6bd50" opacity=".5"/></svg></span><span><strong><%= folder.name %></strong><small><%= folder.image_count %> ảnh · <%= folder.is_owner ? 'Kéo ảnh vào đây' : `Chia sẻ bởi ${folder.owner_name}` %></small></span><span>→</span></a>
         <% }) %></div><% } else { %><p class="muted">Chưa có thư mục.</p><% } %>
       </section>
     <% } %>
@@ -56,7 +55,7 @@
     <% } %>
 
     <% if (!images.length) { %>
-      <section class="empty-state"><div class="empty-icon">◇</div><h2>Chưa có ảnh</h2><p><%= isOwner ? 'Hãy tải lên những bức ảnh đầu tiên.' : 'Chủ thư mục chưa tải ảnh lên.' %></p><% if (isOwner) { %><label for="image-input" class="button outline">Chọn nhiều ảnh</label><% } %></section>
+      <section class="empty-state"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 110 100" fill="none"><rect x="15" y="25" width="66" height="65" rx="7" transform="rotate(-9 15 25)" stroke="currentColor" stroke-opacity=".35" stroke-width="3" stroke-dasharray="7 5"/><g transform="rotate(8 55 56)"><rect x="27" y="26" width="61" height="60" rx="7" stroke="currentColor" stroke-width="3.5"/><path d="m32 74 18-25 13 14 10-11 11 22Z" fill="currentColor"/><circle cx="70" cy="41" r="5" fill="currentColor"/></g><path d="m76 14 3-11m9 16 8-7M64 13 61 3" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></div><h2>Chưa có ảnh</h2><p><%= isOwner ? 'Hãy tải lên những bức ảnh đầu tiên.' : 'Chủ thư mục chưa tải ảnh lên.' %></p><% if (isOwner) { %><button type="button" class="button empty-upload" data-upload-trigger><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m-4 4 4-4 4 4M5 17v3h14v-3"/></svg>Chọn nhiều ảnh</button><% } %></section>
     <% } else { %>
       <form method="post" action="/images/download-batch" id="batch-form" data-ajax-form="true">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">

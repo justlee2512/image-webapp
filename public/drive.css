@@ -1,0 +1,145 @@
+/* The library shares the woodland artwork, with its own open-sky composition. */
+.woodland-drive {
+  --ink: #15312d;
+  --forest: #306d56;
+  --forest-dark: #245740;
+  --paper: #f6f9f6;
+  --surface: #fff;
+  --sage: #e7f3ed;
+  --line: #d8e3dd;
+  --muted: #748087;
+  background: var(--paper);
+}
+[data-theme="dark"] .woodland-drive {
+  --ink: #f4f6f5;
+  --forest: #a1dabb;
+  --forest-dark: #b8e9cd;
+  --paper: #040909;
+  --surface: #0c1315;
+  --sage: #223a31;
+  --line: #34423e;
+  --muted: #a7afb4;
+  --on-accent: #12352b;
+}
+.woodland-drive .topbar { min-height: 76px; padding: 12px 4.8vw; background: var(--surface); }
+.woodland-drive .brand { font-size: 23px; }
+.woodland-drive .brand-mark { width: 41px; height: 41px; font-size: 27px; }
+.woodland-drive .topbar-actions { gap: 18px; }
+.woodland-drive .admin-link { min-height: 44px; font-size: 13px; }
+.woodland-drive .avatar { width: 44px; height: 44px; }
+.woodland-drive .link-button { color: var(--muted); }
+.woodland-drive .drive-shell { width: min(1224px, calc(100% - 96px)); padding: 88px 0 80px; }
+.woodland-drive .hero-row { align-items: start; gap: 48px; margin-bottom: 10px; }
+.woodland-drive .library-heading { padding-top: 12px; }
+.woodland-drive .breadcrumbs { margin: 0 0 20px; font-size: 17px; }
+.woodland-drive .hero-row h1 { font-size: clamp(34px, 3.3vw, 52px); letter-spacing: -1.8px; margin-bottom: 12px; }
+.woodland-drive .hero-row .muted { font-size: 17px; }
+.woodland-drive .library-actions { display: grid; flex: 0 0 494px; gap: 16px; min-width: 0; }
+.woodland-drive .action-card { width: 100%; padding: 15px; border-radius: 15px; box-shadow: 0 4px 15px #193e2606; }
+.woodland-drive .action-icon { width: 54px; height: 54px; background: var(--sage); border-radius: 12px; }
+.woodland-drive .action-icon svg { width: 27px; height: 27px; }
+.woodland-drive .action-copy { gap: 5px; }
+.woodland-drive .action-copy strong { font-size: 16px; color: var(--ink); }
+.woodland-drive .action-copy small { font-size: 14px; }
+.woodland-drive .upload-button { min-height: 52px; padding: 14px 22px; font-size: 16px; }
+.woodland-drive .create-folder-form { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 16px; }
+.woodland-drive .folder-add-icon { display: grid; color: var(--forest); }
+.woodland-drive .folder-input-wrap { gap: 6px; }
+.woodland-drive .folder-input-wrap label { color: var(--ink); font-size: 16px; font-weight: 650; }
+.woodland-drive .create-folder-form input { min-height: 44px; padding: 10px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.woodland-drive .create-folder-form .button { align-self: end; padding: 12px 16px; font-size: 14px; }
+.woodland-drive .folder-section { margin-bottom: 26px; padding: 0; border: 0; }
+.woodland-drive .section-title { margin-bottom: 12px; }
+.woodland-drive .section-title h2 { font-size: 23px; margin: 0; }
+.woodland-drive .folder-grid { gap: 17px; }
+.woodland-drive .folder-card { padding: 18px 20px; min-height: 83px; gap: 21px; border-radius: 14px; box-shadow: 0 3px 14px #193e2608; }
+.woodland-drive .folder-icon { width: 42px; height: 38px; flex: 0 0 42px; display: block; background: none; }
+.woodland-drive .folder-icon svg { display: block; width: 100%; height: 100%; }
+.woodland-drive .folder-card strong { font-size: 17px; }
+.woodland-drive .folder-card small { font-size: 13px; }
+.woodland-drive .folder-card > span:last-child { font-size: 25px; }
+.woodland-drive .folder-card:hover { transform: translateY(-3px); box-shadow: 0 8px 22px #193e2610; }
+.woodland-drive .empty-state { min-height: 308px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 34px 20px; border-radius: 18px; }
+.woodland-drive .empty-icon { width: 97px; height: 88px; color: #80a897; background: transparent; }
+:root[data-theme="dark"] .woodland-drive .empty-icon { background: transparent; }
+.woodland-drive .empty-icon svg { width: 100%; height: 100%; }
+.woodland-drive .empty-state h2 { margin: 8px 0 6px; font-size: 28px; letter-spacing: -.8px; }
+.woodland-drive .empty-state p { margin-bottom: 16px; font-size: 16px; }
+.woodland-drive .empty-upload { color: var(--forest); background: var(--sage); min-height: 50px; padding: 14px 24px; }
+.woodland-drive .empty-upload svg { width: 21px; height: 21px; }
+[data-theme="dark"] .woodland-drive .empty-upload { background: var(--forest); color: var(--on-accent); }
+.woodland-drive .page-scene { top: 0; }
+.woodland-drive .woodland-tree-left, .woodland-drive .woodland-tree-back,
+.woodland-drive .woodland-moon, .woodland-drive .scene-doves { display: none; }
+.woodland-drive .woodland-sun { transform: translate(230px, -15px) scale(.95); opacity: .35; }
+[data-theme="dark"] .woodland-drive .woodland-sun { opacity: 0; }
+.woodland-drive .woodland-trees { opacity: .65; filter: brightness(1.3) saturate(.75); }
+.woodland-drive .woodland-ground { opacity: .25; filter: brightness(1.5); }
+[data-theme="dark"] .woodland-drive .woodland-trees { opacity: .65; filter: brightness(.38) saturate(.85); }
+[data-theme="dark"] .woodland-drive .woodland-ground { opacity: .3; filter: brightness(.3); }
+.woodland-drive .woodland-perch .scene-owl-flight { opacity: 1; transform: none; filter: brightness(1.2); }
+.woodland-drive .perched-owl-head { animation: owl-look 10s ease-in-out infinite; }
+.woodland-drive .perched-owl-eyes { animation: owl-perch-blink 6s ease-in-out infinite; }
+.woodland-drive .owl-gaze { animation: owl-gaze 10s ease-in-out infinite; }
+.woodland-drive .woodland-perch .scene-owl-flight > path { transform-origin: 80px 145px; animation: library-owl-breathe 4s ease-in-out infinite; }
+.library-cloud { animation: library-cloud-drift 38s ease-in-out infinite alternate; opacity: .65; }
+.library-clouds > g:nth-child(2n) .library-cloud { animation-duration: 49s; animation-delay: -24s; }
+.library-clouds > g:nth-child(3) .library-cloud { animation-delay: -12s; }
+.library-clouds { transition: opacity 1s ease; }
+[data-theme="dark"] .library-clouds { opacity: 0; }
+[data-theme="dark"] .library-cloud { animation-play-state: paused; }
+.wind-leaf { opacity: 0; animation: library-leaf-drift 16s linear infinite; }
+.library-wind > g:nth-child(2n) .wind-leaf { animation-delay: -9s; animation-duration: 21s; }
+.library-wind > g:nth-child(3n) .wind-leaf { animation-delay: -5s; animation-duration: 18s; }
+[data-theme="dark"] .library-wind { opacity: .22; }
+@keyframes library-cloud-drift { from { transform: translateX(-65px); } to { transform: translateX(125px); } }
+@keyframes library-leaf-drift {
+  0% { opacity: 0; transform: translate(-50px, -40px) rotate(-20deg); }
+  15%, 75% { opacity: .5; }
+  45% { transform: translate(40px, 40px) rotate(30deg); }
+  100% { opacity: 0; transform: translate(175px, 140px) rotate(110deg); }
+}
+@keyframes library-owl-breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.025); } }
+@media (max-width: 1150px) {
+  .woodland-drive .drive-shell { width: calc(100% - 64px); padding-top: 56px; }
+  .woodland-drive .library-actions { flex-basis: 460px; }
+  .woodland-drive .hero-row { gap: 28px; margin-bottom: 28px; }
+  .woodland-drive .folder-card { gap: 12px; padding: 16px; }
+  .woodland-drive .user-menu small { max-width: 160px; }
+}
+@media (max-width: 900px) {
+  .woodland-drive .hero-row { flex-direction: column; gap: 28px; }
+  .woodland-drive .library-actions { width: 100%; flex-basis: auto; }
+  .woodland-drive .folder-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .woodland-drive .topbar { flex-wrap: wrap; }
+  .woodland-drive .topbar-actions { gap: 10px; }
+  .woodland-drive .user-menu small { display: none; }
+  .woodland-drive .woodland-art { width: 1200px; max-width: none; position: absolute; right: 0; }
+}
+@media (max-width: 600px) {
+  .woodland-drive .topbar { padding: 12px 20px; gap: 12px; }
+  .woodland-drive .brand { font-size: 20px; }
+  .woodland-drive .brand-mark { width: 35px; height: 35px; font-size: 24px; }
+  .woodland-drive .admin-link { width: auto; order: 0; font-size: 11px; min-height: 36px; }
+  .woodland-drive .drive-shell { width: calc(100% - 36px); padding: 32px 0 100px; }
+  .woodland-drive .library-heading { padding-top: 0; }
+  .woodland-drive .hero-row h1 { letter-spacing: -1px; }
+  .woodland-drive .breadcrumbs { margin-bottom: 14px; font-size: 14px; }
+  .woodland-drive .action-card { padding: 12px; gap: 10px; }
+  .woodland-drive .action-icon { width: 40px; height: 44px; }
+  .woodland-drive .action-copy strong, .woodland-drive .folder-input-wrap label { font-size: 14px; }
+  .woodland-drive .action-copy small { font-size: 11px; }
+  .woodland-drive .upload-button { padding: 12px; font-size: 13px; min-height: 46px; }
+  .woodland-drive .create-folder-form { grid-template-columns: 40px minmax(0, 1fr); }
+  .woodland-drive .create-folder-form .button { grid-column: 2; }
+  .woodland-drive .folder-grid { grid-template-columns: 1fr; }
+  .woodland-drive .empty-state { min-height: 310px; }
+  .woodland-drive .empty-state h2 { font-size: 25px; }
+  .woodland-drive .empty-state p { font-size: 14px; }
+  .woodland-drive .woodland-art { width: 1000px; height: auto; aspect-ratio: 1672 / 941; bottom: 0; left: auto; right: -20px; transform: none; }
+  .woodland-drive .woodland-perch { transform: translate(295px, 70px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wind-leaf { opacity: .35; }
+  .library-clouds { transition: none; }
+}

@@ -1,0 +1,7 @@
+    <g class="woodland-perch"<% if (isDriveScene) { %> transform="translate(295 70)"<% } %>>
+      <path d="M1108 837c108-100 276-23 456 23l108 69v-53c-213-111-397-122-493-78Z" fill="#493d2e"/>
+      <path d="M1116 831c124-67 282-8 456 36-151-75-334-113-417-54Z" fill="#756047"/>
+      <path d="M1275 801c-48-10-78-40-106-53 18 31 54 59 86 65Z" fill="#63533d"/>
+      <g transform="<%= isDriveScene ? 'translate(1180 620) scale(1.25)' : 'translate(1224 555) scale(1.66)' %>"><%- include("owl") %></g>
+      <g class="scene-doves" transform="translate(1360 730) scale(-1.2 1.2)"><g class="dove-flight dove-one"><%- include("dove") %></g></g>
+    </g>

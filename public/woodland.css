@@ -31,7 +31,7 @@
 .woodland-ground use {
   transform-box: fill-box;
   transform-origin: 50% 95%;
-  animation: woodland-canopy-wind 10s ease-in-out infinite;
+  animation: woodland-canopy-wind 8s ease-in-out infinite;
 }
 .woodland-tree-left use[href="#woodland-canopy"] { animation-delay: -3s; }
 .woodland-tree-back use[href="#woodland-canopy"] { animation-duration: 12s; animation-delay: -7s; }
@@ -39,20 +39,22 @@
 .woodland-frond {
   transform-box: fill-box;
   transform-origin: 50% 100%;
-  animation: woodland-leaf-wind 7s ease-in-out infinite;
+  animation: woodland-leaf-wind 6s ease-in-out infinite;
 }
 .woodland-frond:nth-child(2n) { animation-delay: -2.5s; animation-duration: 8.5s; }
 .woodland-frond:nth-child(3n) { animation-delay: -5s; animation-duration: 9.5s; }
 .woodland-leaves-back .woodland-frond { animation-duration: 11s; animation-delay: -4s; }
 @keyframes woodland-canopy-wind {
-  0%, 100% { transform: rotate(-.6deg); }
-  45% { transform: rotate(.9deg); }
-  75% { transform: rotate(.15deg); }
+  0%, 100% { transform: rotate(-1.4deg); }
+  35% { transform: rotate(2deg); }
+  55% { transform: rotate(.5deg); }
+  72% { transform: rotate(1.2deg); }
 }
 @keyframes woodland-leaf-wind {
-  0%, 100% { transform: rotate(-1.2deg); }
-  40% { transform: rotate(1.8deg); }
-  70% { transform: rotate(.3deg); }
+  0%, 100% { transform: rotate(-2.8deg); }
+  32% { transform: rotate(4deg); }
+  52% { transform: rotate(.7deg); }
+  70% { transform: rotate(2.2deg); }
 }
 
 .woodland-perch .scene-owl-flight { position: static; }

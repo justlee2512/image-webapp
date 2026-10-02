@@ -615,3 +615,8 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'ArrowLeft') showLightboxImage(activeImageIndex - 1);
   if (event.key === 'ArrowRight') showLightboxImage(activeImageIndex + 1);
 });
+
+// Native buttons keep both upload entry points accessible by keyboard.
+document.querySelectorAll("[data-upload-trigger]").forEach((button) => {
+  button.addEventListener("click", () => document.querySelector("#image-input")?.click());
+});

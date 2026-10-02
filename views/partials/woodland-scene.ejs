@@ -1,3 +1,4 @@
+<% const isDriveScene = typeof driveScene !== "undefined" && driveScene; %>
 <div class="page-scene woodland-scene" aria-hidden="true">
   <div class="scene-dusk"></div>
   <svg class="woodland-art" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice" fill="none">
@@ -41,10 +42,17 @@
       <circle cx="420" cy="202" r="6" fill="#e4ddbb" opacity=".6"/>
     </g>
     <g class="woodland-sun"><circle cx="424" cy="186" r="78" fill="#ffda7418"/><circle cx="424" cy="186" r="50" fill="#f4c660"/></g>
+    <% if (isDriveScene) { %>
+    <g class="library-clouds" fill="#e5eef0">
+      <% for (const [x,y,scale] of [[-65,205,1.1],[385,115,.75],[585,175,.65],[770,94,.8]]) { %>
+      <g transform="translate(<%= x %> <%= y %>) scale(<%= scale %>)"><path class="library-cloud" d="M0 54c-8-16 8-30 25-26C29 0 65-8 81 16c20-16 45-2 44 20 21-6 35 5 35 18Z"/></g>
+      <% } %>
+    </g>
+    <% } %>
     <g class="woodland-trees">
       <g class="woodland-tree-back" transform="translate(-155 280) scale(1.3)"><use href="#woodland-trunk" width="420" height="720"/><use href="#woodland-canopy" x="35" y="110" width="440" height="300"/></g>
       <g class="woodland-tree-left" transform="translate(-285 70) scale(1.45)"><use href="#woodland-trunk" width="420" height="720"/><use href="#woodland-canopy" width="440" height="300"/><use href="#woodland-canopy" x="-65" y="90" width="350" height="240"/></g>
-      <g class="woodland-tree-right" transform="translate(1130 -80) scale(1.9)"><use href="#woodland-trunk" width="420" height="720"/><use href="#woodland-canopy" width="440" height="300"/><use href="#woodland-canopy" x="65" y="115" width="300" height="210"/></g>
+      <g class="woodland-tree-right" transform="<%= isDriveScene ? 'translate(810 -280) scale(2.65)' : 'translate(1130 -80) scale(1.9)' %>"><use href="#woodland-trunk" width="420" height="720"/><use href="#woodland-canopy" width="440" height="300"/><use href="#woodland-canopy" x="65" y="115" width="300" height="210"/></g>
     </g>
     <g class="woodland-ground">
       <% for (const [x,y,w] of [[-130,670,480],[170,755,420],[420,860,400],[745,865,400],[895,760,400],[1090,660,490],[1380,650,480]]) { %>
@@ -56,13 +64,7 @@
       <g class="woodland-frond"><image href="/leaves.svg" x="95" y="670" width="350" height="470" transform="rotate(30 270 940)"/></g>
       <g class="woodland-frond"><image href="/leaves.svg" x="1330" y="610" width="370" height="490" transform="rotate(-20 1515 940)"/></g>
     </g>
-    <g class="woodland-perch">
-      <path d="M1108 837c108-100 276-23 456 23l108 69v-53c-213-111-397-122-493-78Z" fill="#493d2e"/>
-      <path d="M1116 831c124-67 282-8 456 36-151-75-334-113-417-54Z" fill="#756047"/>
-      <path d="M1275 801c-48-10-78-40-106-53 18 31 54 59 86 65Z" fill="#63533d"/>
-      <g transform="translate(1224 555) scale(1.66)"><%- include("owl") %></g>
-      <g class="scene-doves" transform="translate(1360 730) scale(-1.2 1.2)"><g class="dove-flight dove-one"><%- include("dove") %></g></g>
-    </g>
+    <% if (!isDriveScene) { %><%- include("woodland-perch", { isDriveScene }) %><% } %>
     <g class="woodland-leaves">
       <g class="woodland-frond"><image href="/leaves.svg" x="-45" y="605" width="280" height="420"/></g>
       <g class="woodland-frond"><image href="/leaves.svg" x="145" y="725" width="340" height="430" transform="rotate(45 315 950)"/></g>
@@ -70,6 +72,14 @@
       <g class="woodland-frond"><image href="/leaves.svg" x="990" y="755" width="260" height="410" transform="rotate(-55 1120 970)"/></g>
       <g class="woodland-frond"><image href="/leaves.svg" x="1415" y="675" width="300" height="440" transform="rotate(-30 1565 960)"/></g>
     </g>
+    <% if (isDriveScene) { %>
+    <%- include("woodland-perch", { isDriveScene }) %>
+    <g class="library-wind" fill="#92b577">
+      <% for (const [x,y] of [[165,165],[115,345],[880,365],[1510,225],[80,525],[1350,490]]) { %>
+      <g transform="translate(<%= x %> <%= y %>)"><g class="wind-leaf"><path d="M0 0Q-9-27 22-39Q29-12 0 0Z"/><path d="m0 0 16-29" stroke="#d5e6bb" stroke-width="1"/></g></g>
+      <% } %>
+    </g>
+    <% } %>
     <g class="woodland-fireflies">
       <% for (const point of [[79,645],[88,584],[134,841],[272,867],[295,776],[389,709],[566,884],[998,861],[1199,855],[1430,482],[1550,802],[1369,254]]) { %>
         <g class="woodland-firefly" transform="translate(<%= point[0] %> <%= point[1] %>)"><circle r="27" fill="url(#firefly-glow)"/><circle r="4" fill="#fff8bf"/></g>
