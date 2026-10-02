@@ -2164,7 +2164,7 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 .scene-moon { opacity: 0; transform: translate(40px, 180px); background: #eee8d5; box-shadow: inset -17px -9px 0 #b9b4a5, 0 0 48px #f4e8c416; }
 .scene-moon::before, .scene-moon::after { content: ""; position: absolute; border-radius: 50%; background: #c9c4b440; width: 17px; height: 17px; top: 20px; left: 15px; }
 .scene-moon::after { width: 10px; height: 10px; top: 46px; left: 31px; }
-.scene-stars { position: absolute; left: 4vw; right: auto; top: 70px; width: min(720px, 54vw); color: #d3cfbe; opacity: 0; }
+.scene-stars { position: absolute; left: 0; right: 0; top: 70px; width: 100%; height: clamp(280px, 40vh, 420px); color: #d3cfbe; opacity: 0; }
 .scene-dusk { position: absolute; inset: 0; background: linear-gradient(170deg, #c6773020, #bc553518 45%, transparent 75%); opacity: 0; }
 .scene-owl-flight { position: absolute; right: 2vw; top: 210px; width: 100px; opacity: 0; transform: translate(180px, 80px); }
 .scene-flying-owl { display: block; width: 100%; }
@@ -2290,7 +2290,7 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 
 /* Dawn reverses the wildlife scene; the sky stays between the form and canopy. */
 .scene-sun, .scene-moon { right: 35vw; top: 108px; }
-.scene-moon { left: calc(35vw - 38px); right: auto; }
+.scene-moon { left: calc(19vw - 38px); right: auto; top: clamp(170px, 24vh, 240px); }
 .scene-cloud-one { right: 29vw; top: 124px; }
 .scene-cloud-two { right: 49vw; top: 98px; }
 .theme-changing[data-theme="light"] .scene-owl-flight { animation: owl-departure 2.4s linear both; }
@@ -2336,7 +2336,7 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
   .scene-cloud-two { right: 62vw; }
 }
 @media (max-width: 600px) {
-  .scene-moon { left: calc(35vw - 24px); }
+  .scene-moon { left: calc(19vw - 24px); top: 108px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -2344,7 +2344,6 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 }
 
 /* Slow ambient weather; motion is isolated from the stationary perches. */
-.scene-stars { width: min(720px, 40vw); }
 .scene-star { opacity: .38; transform-box: fill-box; transform-origin: center; }
 [data-theme="dark"] .scene-stars { opacity: 1; }
 [data-theme="light"] .scene-cloud { animation: cloud-drift 28s linear infinite; }
@@ -2366,9 +2365,6 @@ body { position: relative; isolation: isolate; min-height: 100svh; }
 }
 @keyframes canopy-breeze { 0%, 100% { transform: rotate(-.5deg); } 50% { transform: rotate(.7deg); } }
 @keyframes bush-night-breeze { 0%, 100% { transform: rotate(-.45deg); } 50% { transform: rotate(.65deg); } }
-@media (max-width: 800px) {
-  .scene-stars { left: 5vw; width: 40vw; }
-}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   [data-theme="light"] .scene-cloud { opacity: .55; }

@@ -4,8 +4,8 @@
   <svg class="scene-cloud scene-cloud-one" viewBox="0 0 200 70"><path d="M25 60C0 60 0 28 27 27 29 1 70-2 78 22 101 5 128 16 130 35 165 10 194 31 184 49 211 62 171 67 153 64H25Z" fill="currentColor"/></svg>
   <svg class="scene-cloud scene-cloud-two" viewBox="0 0 200 70"><path d="M25 60C0 60 0 28 27 27 29 1 70-2 78 22 101 5 128 16 130 35 165 10 194 31 184 49 211 62 171 67 153 64H25Z" fill="currentColor"/></svg>
   <div class="scene-moon"></div>
-  <svg class="scene-stars" viewBox="0 0 600 280" fill="currentColor">
-    <% for (let i = 0; i < 38; i++) { const x = 14 + (i * 137) % 574; const y = 12 + (i * 79) % 252; %>
+  <svg class="scene-stars" viewBox="0 0 1600 360" preserveAspectRatio="xMidYMid slice" fill="currentColor">
+    <% for (let i = 0; i < 100; i++) { const x = 14 + (i * 137) % 1572; const y = 12 + (i * 79) % 336; %>
       <g transform="translate(<%= x %> <%= y %>)"><g class="scene-star"><circle r="<%= 1 + (i % 4) * .4 %>"/><% if (i % 4 === 0) { %><path d="M0-5 1-1 5 0 1 1 0 5-1 1-5 0-1-1Z"/><% } %></g></g>
     <% } %>
   </svg>
