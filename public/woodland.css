@@ -26,6 +26,35 @@
 .woodland-leaves { filter: brightness(.85) saturate(.8); }
 [data-theme="dark"] .woodland-leaves { filter: brightness(.65) saturate(1.05); }
 .woodland-leaves-back { opacity: .6; }
+/* Animate foliage locally so the scene placement and rooted trunks stay stable. */
+.woodland-trees use[href="#woodland-canopy"],
+.woodland-ground use {
+  transform-box: fill-box;
+  transform-origin: 50% 95%;
+  animation: woodland-canopy-wind 10s ease-in-out infinite;
+}
+.woodland-tree-left use[href="#woodland-canopy"] { animation-delay: -3s; }
+.woodland-tree-back use[href="#woodland-canopy"] { animation-duration: 12s; animation-delay: -7s; }
+.woodland-ground use:nth-child(2n) { animation-delay: -5s; animation-duration: 13s; }
+.woodland-frond {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: woodland-leaf-wind 7s ease-in-out infinite;
+}
+.woodland-frond:nth-child(2n) { animation-delay: -2.5s; animation-duration: 8.5s; }
+.woodland-frond:nth-child(3n) { animation-delay: -5s; animation-duration: 9.5s; }
+.woodland-leaves-back .woodland-frond { animation-duration: 11s; animation-delay: -4s; }
+@keyframes woodland-canopy-wind {
+  0%, 100% { transform: rotate(-.6deg); }
+  45% { transform: rotate(.9deg); }
+  75% { transform: rotate(.15deg); }
+}
+@keyframes woodland-leaf-wind {
+  0%, 100% { transform: rotate(-1.2deg); }
+  40% { transform: rotate(1.8deg); }
+  70% { transform: rotate(.3deg); }
+}
+
 .woodland-perch .scene-owl-flight { position: static; }
 .woodland-perch .owl-wing { opacity: 0; }
 .theme-changing .woodland-perch .scene-owl-flight,
@@ -113,6 +142,9 @@
   .woodland-art { width: 900px; max-width: none; position: absolute; left: 50%; transform: translateX(-50%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .woodland-firefly { animation: none; }
+  .woodland-firefly,
+  .woodland-frond,
+  .woodland-trees use[href="#woodland-canopy"],
+  .woodland-ground use { animation: none; }
   .woodland-stars, .woodland-moon, .woodland-fireflies, .woodland-sun { transition: none; }
 }
