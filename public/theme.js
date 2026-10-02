@@ -102,7 +102,7 @@
       button.querySelector('.theme-label').textContent = theme === 'dark' ? 'Tối' : 'Sáng';
     });
   }
-  apply(preference || (system.matches ? 'dark' : 'light'));
+  apply(preference || root.dataset.defaultTheme || (system.matches ? 'dark' : 'light'));
   document.addEventListener('DOMContentLoaded', () => {
     apply(root.dataset.theme);
     document.querySelectorAll('.theme-toggle').forEach((button) => {
@@ -119,11 +119,11 @@
     updateStars();
   });
   system.addEventListener('change', () => {
-    if (!preference) apply(system.matches ? 'dark' : 'light');
+    if (!preference && !root.dataset.defaultTheme) apply(system.matches ? 'dark' : 'light');
   });
   window.addEventListener('storage', (event) => {
     if (event.key !== key && event.key !== null) return;
     preference = ['light', 'dark'].includes(event.newValue) ? event.newValue : null;
-    apply(preference || (system.matches ? 'dark' : 'light'));
+    apply(preference || root.dataset.defaultTheme || (system.matches ? 'dark' : 'light'));
   });
 })();

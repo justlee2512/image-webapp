@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-default-theme="dark" data-theme="dark">
 <head>
   <script src="/theme.js?<%= assetVersion %>"></script>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tạo tài khoản · Richard Le Drive</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles.css?<%= assetVersion %>"><script src="/auth.js?<%= assetVersion %>" defer></script>
+  <title>Tạo tài khoản · Richard Le Drive</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles.css?<%= assetVersion %>"><link rel="stylesheet" href="/woodland.css?<%= assetVersion %>"><script src="/auth.js?<%= assetVersion %>" defer></script>
 </head>
-<body class="auth-page botanical-page">
-  <%- include("partials/scene") %>
+<body class="auth-page botanical-page woodland-auth">
+  <%- include("partials/woodland-scene") %>
   <header class="auth-header"><a class="brand" href="/"><span class="brand-mark">R</span><span>Richard Le <span class="brand-suffix">Drive</span></span></a><%- include("partials/theme-toggle") %></header>
   <main class="auth-shell">
     <section class="auth-panel">

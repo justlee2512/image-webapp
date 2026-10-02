@@ -1,0 +1,118 @@
+/* Authentication scene, composed in the reference's 1672 × 941 coordinate space. */
+.woodland-auth {
+  --woodland-canopy: brightness(.42) saturate(.72);
+  background: #e9efe5;
+}
+[data-theme="dark"] .woodland-auth {
+  --forest: #a0e3b6;
+  --forest-dark: #b7efc8;
+  --woodland-canopy: brightness(.34) saturate(1.05);
+  background: #050909;
+}
+.woodland-scene { background: radial-gradient(ellipse at 50% 55%, #a9bfaa12, transparent 55%); }
+.woodland-art { display: block; width: 100%; height: 100%; }
+.woodland-stars, .woodland-moon, .woodland-fireflies { opacity: 0; transition: opacity 1.2s ease; }
+[data-theme="dark"] .woodland-stars,
+[data-theme="dark"] .woodland-moon,
+[data-theme="dark"] .woodland-fireflies { opacity: 1; }
+.woodland-stars .scene-star { opacity: .65; }
+.woodland-stars .scene-star:has(path) { opacity: .9; filter: drop-shadow(0 0 4px #fff3cc66); }
+.woodland-sun { transition: opacity 1s ease; }
+[data-theme="dark"] .woodland-sun { opacity: 0; }
+.woodland-trees { filter: brightness(.85) saturate(.8); }
+[data-theme="dark"] .woodland-trees { filter: var(--woodland-canopy); }
+.woodland-tree-back { opacity: .55; }
+.woodland-ground { filter: var(--woodland-canopy); }
+.woodland-leaves { filter: brightness(.85) saturate(.8); }
+[data-theme="dark"] .woodland-leaves { filter: brightness(.65) saturate(1.05); }
+.woodland-leaves-back { opacity: .6; }
+.woodland-perch .scene-owl-flight { position: static; }
+.woodland-perch .owl-wing { opacity: 0; }
+.theme-changing .woodland-perch .scene-owl-flight,
+.theme-changing .woodland-perch .owl-wing { animation: none; transition: none; }
+.woodland-perch .owl-wing-left { transform-origin: 53px 96px; }
+.woodland-perch .owl-wing-right { transform-origin: 107px 96px; }
+.woodland-firefly { animation: woodland-glow 4.5s ease-in-out infinite alternate; }
+.woodland-firefly:nth-child(3n) { animation-delay: -2.8s; }
+.woodland-firefly:nth-child(3n + 1) { animation-delay: -1.4s; }
+@keyframes woodland-glow { from { opacity: .35; } to { opacity: 1; } }
+
+.woodland-auth .auth-header {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  padding: 40px clamp(24px, 4.3vw, 72px);
+}
+.woodland-auth .brand { gap: 15px; font-size: 24px; letter-spacing: -.9px; }
+.woodland-auth .brand-mark { width: 44px; height: 44px; font-size: 29px; }
+.woodland-auth .brand-suffix { color: inherit; font-weight: 350; }
+.woodland-auth .theme-toggle { min-height: 54px; gap: 13px; padding: 4px 16px 4px 4px; border-color: #75807860; }
+.woodland-auth .theme-sky { width: 92px; height: 42px; }
+.woodland-auth .theme-orb { top: 9px; left: 14px; width: 24px; height: 24px; }
+.woodland-auth .theme-owl { width: 35px; height: 39px; }
+.woodland-auth .theme-label { font-size: 14px; }
+.woodland-auth .auth-shell { min-height: 100svh; }
+.woodland-auth .auth-panel { padding: 150px 24px 134px; }
+.woodland-auth .auth-card {
+  width: min(100%, 476px);
+  padding: 44px 48px 46px;
+  gap: 27px;
+  border: 1px solid #708d7770;
+  border-radius: 28px;
+  background: linear-gradient(145deg, #fffffff0, #f4f8f0ed);
+  box-shadow: 0 18px 70px #183c2712, inset 0 1px 0 #ffffff15;
+}
+[data-theme="dark"] .woodland-auth .auth-card {
+  background: linear-gradient(145deg, #191b1bec, #0b1010ed);
+  box-shadow: 0 18px 70px #6ec79b09, inset 0 1px 0 #ffffff05;
+  border-color: #819f8e80;
+}
+.woodland-auth .auth-card h2 { margin: 0 0 3px; font-size: 40px; font-weight: 750; line-height: 1.3; letter-spacing: -1.3px; }
+.woodland-auth .auth-card label { gap: 8px; font-size: 16px; font-weight: 450; }
+.woodland-auth .auth-card input { min-height: 54px; padding: 14px 19px; border-radius: 12px; font-size: 16px; }
+[data-theme="dark"] .woodland-auth .auth-card input { background: #050707; border-color: #565c58; }
+.woodland-auth .auth-card input::placeholder { color: var(--muted); opacity: 1; }
+.woodland-auth .auth-card input:focus { border-color: var(--forest); box-shadow: 0 0 0 3px #80d7a025; }
+.woodland-auth .auth-card .button.primary.wide { min-height: 58px; border-radius: 12px; gap: 14px; font-size: 20px; }
+[data-theme="dark"] .woodland-auth .primary { background: linear-gradient(110deg, #a0e3b6, #a4e7bd); color: #103322; }
+[data-theme="dark"] .woodland-auth .primary:hover { background: #b7efc8; box-shadow: 0 5px 24px #a0e3b61a; }
+.woodland-auth .switch { font-size: 16px; line-height: 1.5; }
+[data-theme="dark"] .woodland-auth .switch { color: #c9cdcb; }
+.woodland-auth .auth-card a:focus-visible,
+.woodland-auth .theme-toggle:focus-visible,
+.woodland-auth .brand:focus-visible,
+.woodland-auth .button:focus-visible { outline: 3px solid var(--forest); outline-offset: 5px; }
+
+@media (min-width: 1800px) {
+  .woodland-auth .auth-card { width: 500px; }
+}
+@media (max-width: 900px) {
+  .woodland-auth .auth-header { padding: 24px; }
+  .woodland-auth .brand { font-size: 21px; gap: 10px; }
+  .woodland-auth .auth-panel { padding-top: 130px; padding-bottom: 100px; }
+  .woodland-auth .auth-card { background: #f8faf5f5; }
+  [data-theme="dark"] .woodland-auth .auth-card { background: #111615f5; }
+}
+@media (max-width: 540px) {
+  .woodland-auth .auth-header { padding: 20px; gap: 10px; }
+  .woodland-auth .brand { font-size: 17px; letter-spacing: -.6px; gap: 8px; }
+  .woodland-auth .brand-mark { width: 34px; height: 34px; font-size: 24px; }
+  .woodland-auth .brand-suffix { display: inline; }
+  .woodland-auth .theme-toggle { min-height: 44px; padding: 3px; }
+  .woodland-auth .theme-sky { width: 76px; height: 36px; }
+  .woodland-auth .theme-orb { left: 7px; top: 7px; width: 22px; height: 22px; }
+  .woodland-auth .theme-owl { width: 30px; height: 34px; }
+  .woodland-auth .theme-label { display: none; }
+  .woodland-auth .auth-panel { padding: 112px 20px 90px; }
+  .woodland-auth .auth-card { padding: 30px 25px 32px; gap: 24px; border-radius: 23px; }
+  .woodland-auth .auth-card h2 { font-size: 33px; }
+  .woodland-auth .auth-card label, .woodland-auth .switch { font-size: 14px; }
+  .woodland-auth .auth-card .button.primary.wide { font-size: 18px; min-height: 54px; }
+  .woodland-moon, .woodland-sun { transform: translate(290px, -40px) scale(.8); }
+  .woodland-perch { transform: translate(-45px, 375px) scale(.65); }
+  .woodland-art { width: 900px; max-width: none; position: absolute; left: 50%; transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .woodland-firefly { animation: none; }
+  .woodland-stars, .woodland-moon, .woodland-fireflies, .woodland-sun { transition: none; }
+}
