@@ -70,14 +70,14 @@
 [data-theme="dark"] .woodland-drive .empty-upload { background: var(--forest); color: var(--on-accent); }
 .woodland-drive .page-scene { top: 0; }
 .woodland-drive .woodland-tree-left, .woodland-drive .woodland-tree-back,
-.woodland-drive .woodland-moon, .woodland-drive .scene-doves { display: none; }
+.woodland-drive .woodland-moon { display: none; }
 .woodland-drive .woodland-sun { transform: translate(230px, -15px) scale(.95); opacity: .35; }
 [data-theme="dark"] .woodland-drive .woodland-sun { opacity: 0; }
 .woodland-drive .woodland-trees { opacity: .65; filter: brightness(1.3) saturate(.75); }
 .woodland-drive .woodland-ground { opacity: .25; filter: brightness(1.5); }
 [data-theme="dark"] .woodland-drive .woodland-trees { opacity: .65; filter: brightness(.38) saturate(.85); }
 [data-theme="dark"] .woodland-drive .woodland-ground { opacity: .3; filter: brightness(.3); }
-.woodland-drive .woodland-perch .scene-owl-flight { opacity: 1; transform: none; filter: brightness(1.2); }
+.woodland-drive .woodland-perch .scene-owl-flight { filter: brightness(1.2); }
 .woodland-drive .perched-owl-head { animation: owl-look 10s ease-in-out infinite; }
 .woodland-drive .perched-owl-eyes { animation: owl-perch-blink 6s ease-in-out infinite; }
 .woodland-drive .owl-gaze { animation: owl-gaze 10s ease-in-out infinite; }
